@@ -9,7 +9,7 @@
 
 ucore.img 的内容由 bootblock 和 kernel 组成。
 
->kernel 的生成
+#### kernel 的生成
 
 编译以下文件，生成*.o
 ```
@@ -69,7 +69,7 @@ $(V)$(LD) $(LDFLAGS) -T tools/kernel.ld -o $@ $(KOBJS)
 i386-elf-ld -m    elf_i386 -nostdlib -T tools/kernel.ld -o bin/kernel  obj/kern/init/init.o obj/kern/libs/readline.o obj/kern/libs/stdio.o obj/kern/debug/kdebug.o obj/kern/debug/kmonitor.o obj/kern/debug/panic.o obj/kern/driver/clock.o obj/kern/driver/console.o obj/kern/driver/intr.o obj/kern/driver/picirq.o obj/kern/trap/trap.o obj/kern/trap/trapentry.o obj/kern/trap/vectors.o obj/kern/mm/pmm.o  obj/libs/printfmt.o obj/libs/string.o
 ```
 
->bootblock的生成
+#### bootblock的生成
 
 编译 boot/bootasm.S、boot/bootmain.c，生成 boot/bootasm.o、boot/bootmain.o：
 
@@ -121,7 +121,7 @@ Makefile 代码
 build 512 bytes boot sector: 'bin/bootblock' success!
 ```
 
->ucore.img 的生成
+#### ucore.img 的生成
 
 Makefile 代码
 ```
