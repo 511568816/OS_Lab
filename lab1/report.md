@@ -10,6 +10,7 @@
 ucore.img 的内容由 bootblock 和 kernel 组成。
 
 >kernel 的生成
+
 编译以下文件，生成*.o
 ```
     kern/init/init.c
@@ -69,6 +70,7 @@ i386-elf-ld -m    elf_i386 -nostdlib -T tools/kernel.ld -o bin/kernel  obj/kern/
 ```
 
 >bootblock的生成
+
 编译 boot/bootasm.S、boot/bootmain.c，生成 boot/bootasm.o、boot/bootmain.o：
 
 Makefile 代码
