@@ -111,6 +111,7 @@ gcc -Itools/ -g -Wall -O2 -c tools/sign.c -o obj/sign/tools/sign.o
 gcc -g -Wall -O2 obj/sign/tools/sign.o -o bin/sign
 ```
 检察 obj/bootblock.out 的大小，生成 bin/bootblock：
+
 Makefile 代码
 ```
 @$(call totarget,sign) $(call outfile,bootblock) $(bootblock)
@@ -125,7 +126,6 @@ build 512 bytes boot sector: 'bin/bootblock' success!
 
 Makefile 代码
 ```
-# create ucore.img
 UCOREIMG    := $(call totarget,ucore.img)
 
 $(UCOREIMG): $(kernel) $(bootblock)
