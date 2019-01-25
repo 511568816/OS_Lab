@@ -11,6 +11,7 @@ ucore.img 的内容由 bootblock 和 kernel 组成。
 
 >kernel 的生成
 编译以下文件，生成*.o
+```
     kern/init/init.c
     kern/libs/readline.c
     kern/libs/stdio.c
@@ -27,6 +28,7 @@ ucore.img 的内容由 bootblock 和 kernel 组成。
     kern/mm/pmm.c
     libs/printfmt.c
     libs/string.c
+```
 Makefile代码
 ```
 $(call add_files_cc,$(call listf_cc,$(KSRCDIR)),kernel,$(KCFLAGS))
@@ -51,6 +53,7 @@ i386-elf-gcc -Ilibs/ -fno-builtin -Wall -ggdb -m32 -gstabs -nostdinc  -fno-stack
 i386-elf-gcc -Ilibs/ -fno-builtin -Wall -ggdb -m32 -gstabs -nostdinc  -fno-stack-protector -Ilibs/  -c libs/string.c -o obj/libs/string.o
 ```
 将上述文件生成的*.o文件链接生成 bin/kernel：
+
 Makefile代码
 ```
 $(kernel): tools/kernel.ld
@@ -67,6 +70,7 @@ i386-elf-ld -m    elf_i386 -nostdlib -T tools/kernel.ld -o bin/kernel  obj/kern/
 
 >bootblock的生成
 编译 boot/bootasm.S、boot/bootmain.c，生成 boot/bootasm.o、boot/bootmain.o：
+
 Makefile 代码
 ```
 bootfiles = $(call listf_cc,boot)
@@ -78,6 +82,7 @@ i386-elf-gcc -Iboot/ -fno-builtin -Wall -ggdb -m32 -gstabs -nostdinc  -fno-stack
 i386-elf-gcc -Iboot/ -fno-builtin -Wall -ggdb -m32 -gstabs -nostdinc  -fno-stack-protector -Ilibs/ -Os -nostdinc -c boot/bootmain.c -o obj/boot/bootmain.o
 ```
 将生成的 boot/bootasm.o、boot/bootmain.o 链接生成 bin/bootblock.out：
+
 Makefile 代码
 ```
 $(bootblock): $(call toobj,$(bootfiles)) | $(call totarget,sign)
@@ -92,6 +97,7 @@ $(V)$(LD) $(LDFLAGS) -N -e start -Ttext 0x7C00 $^ -o $(call toobj,bootblock)
 i386-elf-ld -m    elf_i386 -nostdlib -N -e start -Ttext 0x7C00 obj/boot/bootasm.o obj/boot/bootmain.o -o obj/bootblock.o
 ```
 将 tools/sign.c 编译链接为可执行文件：
+
 Makefile 代码
 ```
 $(call add_files_host,tools/sign.c,sign,sign)
@@ -114,6 +120,7 @@ build 512 bytes boot sector: 'bin/bootblock' success!
 ```
 
 >ucore.img 的生成
+
 Makefile 代码
 ```
 # create ucore.img
