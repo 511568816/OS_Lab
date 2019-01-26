@@ -207,6 +207,7 @@ file bin/kernel
 set architecture i8086
 target remote :1234
 b *0x7c00
+continue
 ```
 在lab1目录下执行 make debug ，屏幕显示
 ```
