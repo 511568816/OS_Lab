@@ -210,12 +210,11 @@ b *0x7c00
 ```
 在lab1目录下执行 make debug ，屏幕显示
 ```
-0x0000fff0 in ?? ()
 The target architecture is assumed to be i8086
+0x0000fff0 in ?? ()
 Breakpoint 1 at 0x7c00
 
 Breakpoint 1, 0x00007c00 in ?? ()
-The target architecture is assumed to be i386
 ```
 在gdb的调试界面输入
 ```
