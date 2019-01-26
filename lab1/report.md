@@ -176,14 +176,115 @@ dd if=bin/kernel of=bin/ucore.img seek=1 conv=notrunc
 
 答：
 
-[练习2.2] 在初始化位置0x7c00 设置实地址断点,测试断点正常。
+修改gdbinit内容为
+```
+file bin/kernel
+set architecture i8086
+target remote :1234
+```
+
+在lab1目录下执行make debug，在gdb的调试界面输入
+```
+si
+```
+即可单步跟踪。
+
+使用
+```
+x /10i $pc
+```
+可以显示当前eip处的十条汇编指令。
+
+
+
+[练习2.2] 在初始化位置 0x7c00 设置实地址断点,测试断点正常。
 
 答：
 
-[练习2.3] 在调用qemu 时增加-d in_asm -D q.log 参数，便可以将运行的汇编指令保存在q.log 中。
-将执行的汇编代码与bootasm.S 和 bootblock.asm 进行比较，看看二者是否一致。
+修改gdbinit内容为
+```
+file bin/kernel
+set architecture i8086
+target remote :1234
+b *0x7c00
+```
+在lab1目录下执行 make debug ，屏幕显示
+```
+0x0000fff0 in ?? ()
+The target architecture is assumed to be i8086
+Breakpoint 1 at 0x7c00
+
+Breakpoint 1, 0x00007c00 in ?? ()
+The target architecture is assumed to be i386
+```
+在gdb的调试界面输入
+```
+x /10i $pc
+```
+屏幕显示
+```
+=> 0x7c00:    cli    
+0x7c01:    cld    
+0x7c02:    xor    %eax,%eax
+0x7c04:    mov    %eax,%ds
+0x7c06:    mov    %eax,%es
+0x7c08:    mov    %eax,%ss
+0x7c0a:    in     $0x64,%al
+0x7c0c:    test   $0x2,%al
+0x7c0e:    jne    0x7c0a
+0x7c10:    mov    $0xd1,%al
+```
+
+[练习2.3] 在调用qemu 时增加 -d in_asm -D q.log 参数，便可以将运行的汇编指令保存在q.log 中。
+将执行的汇编代码与 bootasm.S 和 bootblock.asm 进行比较，看看二者是否一致。
 
 答：
+
+在0x7c00处设置断点，使用 si 单步跟踪，从断点处，q.log记录的前十条代码为：
+```
+----------------
+IN: 
+0x00007c00:  fa                       cli      
+
+----------------
+IN: 
+0x00007c01:  fc                       cld      
+
+----------------
+IN: 
+0x00007c02:  31 c0                    xorw     %ax, %ax
+
+----------------
+IN: 
+0x00007c04:  8e d8                    movw     %ax, %ds
+
+----------------
+IN: 
+0x00007c06:  8e c0                    movw     %ax, %es
+
+----------------
+IN: 
+0x00007c08:  8e d0                    movw     %ax, %ss
+
+----------------
+IN: 
+0x00007c0a:  e4 64                    inb      $0x64, %al
+
+----------------
+IN: 
+0x00007c0c:  a8 02                    testb    $2, %al
+
+----------------
+IN: 
+0x00007c0e:  75 fa                    jne      0x7c0a
+
+----------------
+IN: 
+0x00007c10:  b0 d1                    movb     $0xd1, %al
+
+----------------
+```
+与 bootasm.S 和 bootblock.asm 是一致的。
 
 
 ## [练习3]
