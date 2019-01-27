@@ -389,6 +389,80 @@ call bootmain
 
 答：
 
+bootmain函数分析：
+```
+/* bootmain - the entry of bootloader */
+void
+bootmain(void) {
+    // 读取ELF的头部
+    readseg((uintptr_t)ELFHDR, SECTSIZE * 8, 0);
+
+    // 根据头部的成员变量e_magic判断ELF文件是否合法
+    if (ELFHDR->e_magic != ELF_MAGIC) {
+        goto bad;
+    }
+
+    struct proghdr *ph, *eph;
+
+    // load each program segment (ignores ph flags)
+    // ph为ELF的首地址
+    ph = (struct proghdr *)((uintptr_t)ELFHDR + ELFHDR->e_phoff);
+    eph = ph + ELFHDR->e_phnum;
+    // 通过readseg函数（后面分析），将ELF文件中的数据读入内存
+    for (; ph < eph; ph ++) {
+        readseg(ph->p_va & 0xFFFFFF, ph->p_memsz, ph->p_offset);
+    }
+    // 根据ELF头部信息进入内核入口
+    ((void (*)(void))(ELFHDR->e_entry & 0xFFFFFF))();
+
+bad:
+outw(0x8A00, 0x8A00);
+outw(0x8A00, 0x8E00);
+
+/* do nothing */
+while (1);
+}
+```
+
+readseg函数分析：
+```
+/* *
+* readseg - read @count bytes at @offset from kernel into virtual address @va,
+* might copy more than asked.
+* */
+static void
+readseg(uintptr_t va, uint32_t count, uint32_t offset)
+```
+
+通过readsect函数，读取count大小的扇区内容。
+
+readsect函数分析：
+```
+/* readsect - read a single sector at @secno into @dst */
+static void
+readsect(void *dst, uint32_t secno) {
+    // wait for disk to be ready
+    waitdisk();
+
+    // 要读写的扇区数，这里为1
+    outb(0x1F2, 1);     
+    
+    // 设置扇区号
+    outb(0x1F3, secno & 0xFF);
+    outb(0x1F4, (secno >> 8) & 0xFF);
+    outb(0x1F5, (secno >> 16) & 0xFF);
+    outb(0x1F6, ((secno >> 24) & 0xF) | 0xE0);
+    
+    outb(0x1F7, 0x20);                      // cmd 0x20 - read sectors
+
+    // wait for disk to be ready
+    waitdisk();
+
+    // 读取一个扇区的内容
+    insl(0x1F0, dst, SECTSIZE / 4);
+}
+```
+
 
 ## [练习5] 
 实现函数调用堆栈跟踪函数 
