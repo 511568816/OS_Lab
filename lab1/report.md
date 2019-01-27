@@ -30,10 +30,12 @@ ucore.img 的内容由 bootblock 和 kernel 组成。
     libs/printfmt.c
     libs/string.c
 ```
+
 Makefile代码
 ```
 $(call add_files_cc,$(call listf_cc,$(KSRCDIR)),kernel,$(KCFLAGS))
 ```
+
 实际执行代码
 ```
 i386-elf-gcc -Ikern/init/ -fno-builtin -Wall -ggdb -m32 -gstabs -nostdinc  -fno-stack-protector -Ilibs/ -Ikern/debug/ -Ikern/driver/ -Ikern/trap/ -Ikern/mm/ -c kern/init/init.c -o obj/kern/init/init.o
@@ -53,6 +55,7 @@ i386-elf-gcc -Ikern/mm/ -fno-builtin -Wall -ggdb -m32 -gstabs -nostdinc  -fno-st
 i386-elf-gcc -Ilibs/ -fno-builtin -Wall -ggdb -m32 -gstabs -nostdinc  -fno-stack-protector -Ilibs/  -c libs/printfmt.c -o obj/libs/printfmt.o
 i386-elf-gcc -Ilibs/ -fno-builtin -Wall -ggdb -m32 -gstabs -nostdinc  -fno-stack-protector -Ilibs/  -c libs/string.c -o obj/libs/string.o
 ```
+
 将上述文件生成的*.o文件链接生成 bin/kernel：
 
 Makefile代码
@@ -64,6 +67,7 @@ $(V)$(LD) $(LDFLAGS) -T tools/kernel.ld -o $@ $(KOBJS)
 @$(OBJDUMP) -S $@ > $(call asmfile,kernel)
 @$(OBJDUMP) -t $@ | $(SED) '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $(call symfile,kernel)
 ```
+
 实际执行代码
 ```
 i386-elf-ld -m    elf_i386 -nostdlib -T tools/kernel.ld -o bin/kernel  obj/kern/init/init.o obj/kern/libs/readline.o obj/kern/libs/stdio.o obj/kern/debug/kdebug.o obj/kern/debug/kmonitor.o obj/kern/debug/panic.o obj/kern/driver/clock.o obj/kern/driver/console.o obj/kern/driver/intr.o obj/kern/driver/picirq.o obj/kern/trap/trap.o obj/kern/trap/trapentry.o obj/kern/trap/vectors.o obj/kern/mm/pmm.o  obj/libs/printfmt.o obj/libs/string.o
@@ -78,11 +82,13 @@ Makefile 代码
 bootfiles = $(call listf_cc,boot)
 $(foreach f,$(bootfiles),$(call cc_compile,$(f),$(CC),$(CFLAGS) -Os -nostdinc))
 ```
+
 实际执行代码
 ```
 i386-elf-gcc -Iboot/ -fno-builtin -Wall -ggdb -m32 -gstabs -nostdinc  -fno-stack-protector -Ilibs/ -Os -nostdinc -c boot/bootasm.S -o obj/boot/bootasm.o
 i386-elf-gcc -Iboot/ -fno-builtin -Wall -ggdb -m32 -gstabs -nostdinc  -fno-stack-protector -Ilibs/ -Os -nostdinc -c boot/bootmain.c -o obj/boot/bootmain.o
 ```
+
 将生成的 boot/bootasm.o、boot/bootmain.o 链接生成 bin/bootblock.out：
 
 Makefile 代码
@@ -94,6 +100,7 @@ $(V)$(LD) $(LDFLAGS) -N -e start -Ttext 0x7C00 $^ -o $(call toobj,bootblock)
 # 拷贝以二进制格式拷贝bootblock.o到bootblock.out
 @$(OBJCOPY) -S -O binary $(call objfile,bootblock) $(call outfile,bootblock)
 ```
+
 实际执行代码
 ```
 i386-elf-ld -m    elf_i386 -nostdlib -N -e start -Ttext 0x7C00 obj/boot/bootasm.o obj/boot/bootmain.o -o obj/bootblock.o
@@ -105,17 +112,20 @@ Makefile 代码
 $(call add_files_host,tools/sign.c,sign,sign)
 $(call create_target_host,sign,sign)
 ```
+
 实际执行代码
 ```
 gcc -Itools/ -g -Wall -O2 -c tools/sign.c -o obj/sign/tools/sign.o
 gcc -g -Wall -O2 obj/sign/tools/sign.o -o bin/sign
 ```
+
 检察 obj/bootblock.out 的大小，生成 bin/bootblock：
 
 Makefile 代码
 ```
 @$(call totarget,sign) $(call outfile,bootblock) $(bootblock)
 ```
+
 执行输出
 ```
 'obj/bootblock.out' size: 500 bytes
@@ -133,6 +143,7 @@ $(V)dd if=/dev/zero of=$@ count=10000
 $(V)dd if=$(bootblock) of=$@ conv=notrunc
 $(V)dd if=$(kernel) of=$@ seek=1 conv=notrunc
 ```
+
 实际执行代码
 ```
 // 生成10000个512字节的块，块的内容为0。
@@ -187,15 +198,15 @@ target remote :1234
 ```
 si
 ```
+
 即可单步跟踪。
 
 使用
 ```
 x /10i $pc
 ```
+
 可以显示当前eip处的十条汇编指令。
-
-
 
 ### [练习2.2] 在初始化位置 0x7c00 设置实地址断点,测试断点正常。
 
@@ -209,6 +220,7 @@ target remote :1234
 b *0x7c00
 continue
 ```
+
 在lab1目录下执行 make debug ，屏幕显示
 ```
 The target architecture is assumed to be i8086
@@ -217,10 +229,12 @@ Breakpoint 1 at 0x7c00
 
 Breakpoint 1, 0x00007c00 in ?? ()
 ```
+
 在gdb的调试界面输入
 ```
 x /10i $pc
 ```
+
 屏幕显示
 ```
 => 0x7c00:    cli    
@@ -284,13 +298,89 @@ IN:
 
 ----------------
 ```
+
 与 bootasm.S 和 bootblock.asm 是一致的。
 
 
 ## [练习3]
-分析bootloader 进入保护模式的过程。
+分析 bootloader 进入保护模式的过程。
 
 答：
+首先对环境进行预处理，将flag置零，段寄存器置零：
+```
+.globl start
+start:
+# Assemble for 16-bit mode
+.code16
+# 将IF位置0,屏蔽掉“可屏蔽中断”,当可屏蔽中断到来时CPU不响应,继续执行原指令
+cli 
+# 将DF位置0，串操作控制处理方向，从带有最低地址的第一个元素逐个处理
+cld                                            
+
+# Set up the important data segment registers (DS, ES, SS).
+xorw %ax, %ax                                   # 异或 将%ax置零
+movw %ax, %ds                                   # -> Data Segment
+movw %ax, %es                                   # -> Extra Segment
+movw %ax, %ss                                   # -> Stack Segment
+```
+开启A20：
+```
+seta20.1:               # 等待 8042 inutbuffer 为空
+    inb $0x64, %al      # 
+    testb $0x2, %al     #
+    jnz seta20.1        #
+
+    movb $0xd1, %al     # 向8042输出端口写入
+    outb %al, $0x64     # 
+
+seta20.1:               # 等待 8042 inputbuffer 为空
+    inb $0x64, %al      # 
+    testb $0x2, %al     #
+    jnz seta20.1        #
+
+    movb $0xdf, %al     # 打开A20
+    outb %al, $0x60     # 
+```
+
+>注：发现开启A20和键盘控制器是否忙（inputbuffer is empty）并没有什么关系，目的是为了防止被Hack。
+
+初始化GDT表：
+```
+lgdt gdtdesc
+```
+
+进入保护模式：
+```
+movl %cr0, %eax         # 将cr0的PE位置1
+orl $CR0_PE_ON, %eax    #
+movl %eax, %cr0         #
+```
+
+更新CS，并跳转至32位代码段：
+```
+ljmp $PROT_MODE_CSEG, $protcseg
+```
+
+更新段寄存器：
+```
+.code32                                             # Assemble for 32-bit mode
+protcseg:
+    # Set up the protected-mode data segment registers
+    movw $PROT_MODE_DSEG, %ax                       # Our data segment selector
+    movw %ax, %ds                                   # -> DS: Data Segment
+    movw %ax, %es                                   # -> ES: Extra Segment
+    movw %ax, %fs                                   # -> FS
+    movw %ax, %gs                                   # -> GS
+    movw %ax, %ss                                   # -> SS: Stack Segment
+```
+
+初始化堆栈，进入boot主方法：
+```
+# Set up the stack pointer and call into C. The stack region is from 0--start(0x7c00)
+movl $0x0, %ebp
+movl $start, %esp
+call bootmain
+```
 
 
 ## [练习4]
