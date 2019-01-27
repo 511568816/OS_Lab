@@ -426,15 +426,10 @@ while (1);
 
 readseg函数分析：
 ```
-/* *
-* readseg - read @count bytes at @offset from kernel into virtual address @va,
-* might copy more than asked.
-* */
+// 通过readsect函数，从kernel @offset读取@count bytes的扇区内容到@va
 static void
 readseg(uintptr_t va, uint32_t count, uint32_t offset)
 ```
-
-通过readsect函数，读取count大小的扇区内容。
 
 readsect函数分析：
 ```
