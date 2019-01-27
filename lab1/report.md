@@ -306,6 +306,7 @@ IN:
 分析 bootloader 进入保护模式的过程。
 
 答：
+
 首先对环境进行预处理，将flag置零，段寄存器置零：
 ```
 .globl start
