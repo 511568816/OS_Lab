@@ -464,6 +464,48 @@ readsect(void *dst, uint32_t secno) {
 
 答：
 
+```
+/*
+栈底方向      高位地址
+...
+...
+参数3
+参数2
+参数1
+返回地址
+上一层[ebp]   <-------- [esp/当前ebp]
+局部变量      低位地址
+参考资料：https://www.jianshu.com/p/8e3c962af1a6
+*/
+void
+print_stackframe(void) {
+    uint32_t curr_ebp, curr_eip;
+    // (1) call read_ebp() to get the value of ebp. the type is (uint32_t)
+    curr_ebp = read_ebp();
+    // (2) call read_eip() to get the value of eip. the type is (uint32_t);
+    curr_eip = read_eip();
+    // (3) from 0 .. STACKFRAME_DEPTH
+    for (int stack_level = 0; stack_level <= STACKFRAME_DEPTH; ++stack_level) {
+        cprintf("stack_level: %d\n", stack_level);
+        // (3.1) printf value of ebp, eip
+        cprintf("ebp: 0x%08x eip: 0x%08x ", curr_ebp, curr_eip);
+        // (3.2) (uint32_t)calling arguments [0..4] = the contents in address (uint32_t)ebp +2 [0..4]
+        cprintf("args:");
+        // 未定义uint_32与整数的加法，且sizeof(uint_32) == 4，故先转换位指针再做加法。后面同理。
+        for (int arg_num = 0; arg_num < 4; ++arg_num)   
+            cprintf("0x%8x ", *((uint32_t*)curr_ebp + 2 + arg_num));
+        // (3.3) cprintf("\n");
+        cprintf("\n");
+        // (3.4) call print_debuginfo(eip-1) to print the C calling function name and line number, etc.
+        print_debuginfo(curr_eip);
+        // (3.5) popup a calling stackframe
+        //           NOTICE: the calling funciton's return addr eip  = ss:[ebp+4]
+        //                   the calling funciton's ebp = ss:[ebp]
+        curr_eip = *((uint32_t*)curr_ebp + 1);
+        curr_ebp = *((uint32_t*)curr_ebp);
+    }
+}
+```
 
 ## [练习6]
 完善中断初始化和处理

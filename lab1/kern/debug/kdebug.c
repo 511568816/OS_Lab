@@ -314,6 +314,7 @@ print_stackframe(void) {
         cprintf("ebp: 0x%08x eip: 0x%08x ", curr_ebp, curr_eip);
         // (3.2) (uint32_t)calling arguments [0..4] = the contents in address (uint32_t)ebp +2 [0..4]
         cprintf("args:");
+        // 未定义uint_32与整数的加法，且sizeof(uint_32) == 4，故先转换位指针再做加法。后面同理。
         for (int arg_num = 0; arg_num < 4; ++arg_num)
             cprintf("0x%8x ", *((uint32_t*)curr_ebp + 2 + arg_num));
         // (3.3) cprintf("\n");
