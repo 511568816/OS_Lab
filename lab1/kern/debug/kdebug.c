@@ -302,6 +302,7 @@ read_eip(void) {
  */
 void
 print_stackframe(void) {
+    /* LAB1 2017011313 : STEP 1 */
     uint32_t curr_ebp, curr_eip;
     // (1) call read_ebp() to get the value of ebp. the type is (uint32_t)
     curr_ebp = read_ebp();
@@ -309,7 +310,6 @@ print_stackframe(void) {
     curr_eip = read_eip();
     // (3) from 0 .. STACKFRAME_DEPTH
     for (int stack_level = 0; stack_level <= STACKFRAME_DEPTH; ++stack_level) {
-        cprintf("stack_level: %d\n", stack_level);
         // (3.1) printf value of ebp, eip
         cprintf("ebp: 0x%08x eip: 0x%08x ", curr_ebp, curr_eip);
         // (3.2) (uint32_t)calling arguments [0..4] = the contents in address (uint32_t)ebp +2 [0..4]

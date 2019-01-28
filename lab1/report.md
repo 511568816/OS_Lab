@@ -479,6 +479,7 @@ readsect(void *dst, uint32_t secno) {
 */
 void
 print_stackframe(void) {
+    /* LAB1 YOUR CODE : STEP 1 */
     uint32_t curr_ebp, curr_eip;
     // (1) call read_ebp() to get the value of ebp. the type is (uint32_t)
     curr_ebp = read_ebp();
@@ -514,13 +515,59 @@ print_stackframe(void) {
 
 答：
 
+8字节。
+
+低16位和高16位组成偏移量，16..31字节组成段选择子，二者组成中断处理代码的入口。
+
 [练习6.2] 请编程完善kern/trap/trap.c中对中断向量表进行初始化的函数idt_init。
 
 答：
 
+```
+/* idt_init - initialize IDT to each of the entry points in kern/trap/vectors.S */
+void
+idt_init(void) {
+     /* LAB1 YOUR CODE : STEP 2 */
+     /* (1) Where are the entry addrs of each Interrupt Service Routine (ISR)?
+      *     All ISR's entry addrs are stored in __vectors. where is uintptr_t __vectors[] ?
+      *     __vectors[] is in kern/trap/vector.S which is produced by tools/vector.c
+      *     (try "make" command in lab1, then you will find vector.S in kern/trap DIR)
+      *     You can use  "extern uintptr_t __vectors[];" to define this extern variable which will be used later.
+      * (2) Now you should setup the entries of ISR in Interrupt Description Table (IDT).
+      *     Can you see idt[256] in this file? Yes, it's IDT! you can use SETGATE macro to setup each item of IDT
+      * (3) After setup the contents of IDT, you will let CPU know where is the IDT by using 'lidt' instruction.
+      *     You don't know the meaning of this instruction? just google it! and check the libs/x86.h to know more.
+      *     Notice: the argument of lidt is idt_pd. try to find it!
+      */
+    extern uintptr_t __vectors[];
+    // SETGATE(gate, istrap, sel, off, dpl)
+    // 定义于kern/mm/mmu.h
+    // gate：处理函数的入口地址
+    // istrap：系统段设置为1，中断门设置为0
+    // sel：段选择子 
+    // off：偏移量
+    // dpl：特权级
+    for (int i = 0; i < 256; ++i) 
+        SETGATE(idt[i], 0, GD_KTEXT, __vectors[i], DPL_KERNEL);
+    // T_SWITCH_TOK 定义于kern/trap/trap/h，也可以使用T_SWITCH_TOU
+   	// 用于设置用户态到内核态的切换
+    SETGATE(idt[T_SWITCH_TOK], 0, GD_KTEXT, __vectors[T_SWITCH_TOK], DPL_USER);
+	// load IDT
+    lidt(&idt_pd);
+}
+```
+
 [练习6.3] 请编程完善trap.c中的中断处理函数trap，在对时钟中断进行处理的部分填写trap函数
 
 答：
+
+```
+case IRQ_OFFSET + IRQ_TIMER:
+    ++ticks;
+    if (ticks % TICK_NUM == 0)
+        print_ticks();
+    break;
+```
 
 
 ## [练习7]
