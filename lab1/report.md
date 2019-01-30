@@ -479,7 +479,6 @@ readsect(void *dst, uint32_t secno) {
 */
 void
 print_stackframe(void) {
-    /* LAB1 YOUR CODE : STEP 1 */
     uint32_t curr_ebp, curr_eip;
     // (1) call read_ebp() to get the value of ebp. the type is (uint32_t)
     curr_ebp = read_ebp();
@@ -527,7 +526,6 @@ print_stackframe(void) {
 /* idt_init - initialize IDT to each of the entry points in kern/trap/vectors.S */
 void
 idt_init(void) {
-     /* LAB1 YOUR CODE : STEP 2 */
      /* (1) Where are the entry addrs of each Interrupt Service Routine (ISR)?
       *     All ISR's entry addrs are stored in __vectors. where is uintptr_t __vectors[] ?
       *     __vectors[] is in kern/trap/vector.S which is produced by tools/vector.c
@@ -575,3 +573,85 @@ case IRQ_OFFSET + IRQ_TIMER:
 增加syscall功能，即增加一用户态函数（可执行一特定系统调用：获得时钟计数值），当内核初始完毕后，可从内核态返回到用户态的函数，而用户态的函数又通过系统调用得到内核态的服务
 
 答：
+
+测试函数
+```
+static void
+lab1_switch_test(void) {
+    lab1_print_cur_status();
+    cprintf("+++ switch to  user  mode +++\n");
+    lab1_switch_to_user();
+    cprintf("%d ticks\n", ticks); // 获得时钟计数值
+    lab1_print_cur_status();
+    cprintf("+++ switch to kernel mode +++\n");
+    cprintf("%d ticks\n", ticks); // 获得时钟计数值
+    lab1_switch_to_kernel();
+    lab1_print_cur_status();
+}
+```
+
+switch_to_user 分析
+```
+static void
+lab1_switch_to_user(void) {
+    //LAB1 CHALLENGE 1 : TODO
+    asm volatile (
+        /*  
+            处于用户态时，如果出现中断，需要切换堆栈
+            除了保存 OLD EFLAGS、OLD CS、OLD EIP寄存器
+            还需要保存OLD ESP和OLD SS寄存器
+            处于内核态时，如果出现中断，无需切换堆栈
+            所以无需保存ESP和SS寄存器
+            但是iret 每次pop五个参数用于恢复寄存器
+            为了防止堆栈被破坏
+            所以需要将栈顶寄存器ESP向下移动2 * 4字节
+        */
+	    "sub $0x8, %%esp \n" 
+	    "int %0 \n"
+        /*
+            int 之后，esp 内容被更改
+            ret 需要通过 esp 寻找上一帧函数
+            movl 操作使得 esp = ebp，其中 ebp 指向 old ebp
+            使得能够正确回到此函数
+        */
+	    "movl %%ebp, %%esp"
+	    : 
+	    : "i"(T_SWITCH_TOU)
+	);
+}
+```
+
+switch_to_kernel
+```
+static void
+lab1_switch_to_kernel(void) {
+    //LAB1 CHALLENGE 1 :  TODO
+	asm volatile (
+	    "int %0 \n"
+        // 参考 kernel_to_user 注释
+	    "movl %%ebp, %%esp \n"
+	    : 
+	    : "i"(T_SWITCH_TOK)
+	);
+}
+```
+
+trap_dispatch 分析
+```
+case T_SWITCH_TOU:
+    if (tf->tf_cs != USER_CS) {
+        tf->tf_ds = tf->tf_es = tf->tf_fs = tf->tf_gs = tf->tf_ss = USER_DS;
+        tf->tf_cs = USER_CS;
+        // 开启IO权限
+        tf->tf_eflags |= FL_IOPL_MASK;
+    }
+    break;
+case T_SWITCH_TOK:
+    if (tf->tf_cs != KERNEL_CS) {
+        tf->tf_ds = tf->tf_es = tf->tf_fs = tf->tf_gs = tf->tf_ss = KERNEL_DS;
+        tf->tf_cs = KERNEL_CS;
+        // 关闭IO权限
+        tf->tf_eflags &= ~FL_IOPL_MASK;
+    }
+    break;
+```
