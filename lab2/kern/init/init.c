@@ -85,11 +85,41 @@ lab1_print_cur_status(void) {
 static void
 lab1_switch_to_user(void) {
     //LAB1 CHALLENGE 1 : TODO
+    asm volatile (
+      /*
+       处于用户态时，如果出现中断，需要切换堆栈
+       除了保存 OLD EFLAGS、OLD CS、OLD EIP寄存器
+       还需要保存OLD ESP和OLD SS寄存器
+       处于内核态时，如果出现中断，无需切换堆栈
+       所以无需保存ESP和SS寄存器
+       但是iret 每次pop五个参数用于恢复寄存器
+       为了防止堆栈被破坏
+       所以需要将栈顶寄存器ESP向下移动2 * 4字节
+       */
+      "sub $0x8, %%esp \n"
+      "int %0 \n"
+      /*
+       int 之后，esp 内容被更改
+       ret 需要通过 esp 寻找上一帧函数
+       movl 操作使得 esp = ebp，其中 ebp 指向 old ebp
+       使得能够正确回到此函数
+       */
+      "movl %%ebp, %%esp"
+      :
+      : "i"(T_SWITCH_TOU)
+      );
 }
 
 static void
 lab1_switch_to_kernel(void) {
     //LAB1 CHALLENGE 1 :  TODO
+    asm volatile (
+      "int %0 \n"
+      // 参考 kernel_to_user 注释
+      "movl %%ebp, %%esp \n"
+      :
+      : "i"(T_SWITCH_TOK)
+      );
 }
 
 static void
