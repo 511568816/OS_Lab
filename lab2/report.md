@@ -7,6 +7,8 @@
 答：
 
 相关内容理解（定义于 mm/memlayout.c）
+
+Page 结构体
 ```
 struct Page {
     int ref;                        // page frame's reference counter
@@ -20,13 +22,19 @@ struct Page {
     list_entry_t page_link;         // free list link
                                     // 便于把多个连续内存空闲块链接在一起的双向链表指针
 };
+```
 
+free_area_t 结构体
+```
 typedef struct {
     list_entry_t free_list;         // the list header
     unsigned int nr_free;           // # of free pages in this free list
                                     // 当前空闲页的个数
 } free_area_t;
+```
 
+PG_property 变量
+```
 /* 
     if this bit=1: 
     the Page is the head page of a free memory block
