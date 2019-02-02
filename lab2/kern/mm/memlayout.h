@@ -98,9 +98,15 @@ struct e820map {
  * */
 struct Page {
     int ref;                        // page frame's reference counter
+                                    // 页被页表的引用记数，即映射此物理页的虚拟页个数
     uint32_t flags;                 // array of flags that describe the status of the page frame
+                                    // 此物理页的状态标记，有两个标志位
+                                    // 第一个表示是否被保留（reserved）
+                                    // 第二个表示此页是否可被分配（free）
     unsigned int property;          // the num of free block, used in first fit pm manager
+                                    // 某连续内存空闲块的大小
     list_entry_t page_link;         // free list link
+                                    // 便于把多个连续内存空闲块链接在一起的双向链表指针
 };
 
 /* Flags describing the status of a page frame */
@@ -122,6 +128,7 @@ struct Page {
 typedef struct {
     list_entry_t free_list;         // the list header
     unsigned int nr_free;           // # of free pages in this free list
+                                    // 当前空闲页的个数
 } free_area_t;
 
 #endif /* !__ASSEMBLER__ */
