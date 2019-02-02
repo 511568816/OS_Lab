@@ -1,18 +1,12 @@
 # Lab2 report
 
 ## [练习1]
-实现 first-fit 连续物理内存分配算法
+
+### 实现 first-fit 连续物理内存分配算法
 
 答：
 
-```
-在实现first fit 内存分配算法的回收函数时，要考虑地址连续的空闲块之间的合并操作。提示:在建立空闲页块链表时，需要按照空闲页块起始地址来排序，形成一个有序的链表。可能会修改default_pmm.c中的default_init，default_init_memmap，default_alloc_pages， default_free_pages等相关函数。请仔细查看和理解default_pmm.c中的注释。
-
-请在实验报告中简要说明你的设计实现过程。请回答如下问题：
-
-你的first fit算法是否有进一步的改进空间
-```
-
+相关内容理解（定义于 mm/memlayout.c）
 ```
 struct Page {
     int ref;                        // page frame's reference counter
@@ -26,23 +20,19 @@ struct Page {
     list_entry_t page_link;         // free list link
                                     // 便于把多个连续内存空闲块链接在一起的双向链表指针
 };
-```
 
-```
 typedef struct {
     list_entry_t free_list;         // the list header
     unsigned int nr_free;           // # of free pages in this free list
                                     // 当前空闲页的个数
 } free_area_t;
-```
 
-```
 /* 
     if this bit=1: 
     the Page is the head page of a free memory block
     (contains some continuous_addrress pages),
     and can be used in alloc_pages 
-    标记当前页为一片连续 block 的头，且可以被分配
+    标记当前页为一片连续 block 的头，且可以被分配，即 PG_property = 1
 */
 SetPageProperty(page);
 ```
@@ -157,3 +147,10 @@ default_free_pages(struct Page *base, size_t n) {
     list_add_before(le, &(base->page_link));
 }
 ```
+
+### first fit 算法改进
+
+原代码在 free 时，两次寻找 base 的插入位置。
+这里改进为只需要查找一次。
+具体方法在“default_free_pages 分析”中有详细注释。
+
