@@ -162,3 +162,104 @@ default_free_pages(struct Page *base, size_t n) {
 这里改进为只需要查找一次。
 具体方法在“default_free_pages 分析”中有详细注释。
 
+
+## [练习2]
+
+### [练习2.1]
+实现寻找虚拟地址对应的页表项
+
+get_pte 分析
+```
+    // (1) find page directory entry
+    // pdep: page_directory_entry_pointer
+    pde_t *pdep = pgdir + PDX(la);
+    // (2) check if entry is not present
+    if (!(*pdep & PTE_P)) {
+        // (3) check if creating is needed, then alloc page for page table
+        if (!create)
+            return NULL;
+        struct Page *page = alloc_page();
+        // 如果分配页失败
+        if (page == NULL)
+            return NULL;
+        // (4) set page reference
+        set_page_ref(page, 1);
+        // (5) get linear address of page
+        uintptr_t pa = page2pa(page);
+        // (6) clear page content using memset
+        memset(KADDR(pa), 0, PGSIZE);
+        // (7) set page directory entry's permission
+        *pdep = pa | PTE_U | PTE_W | PTE_P;
+    }
+    // (8) return page table entry
+    return (pte_t *)KADDR(PDE_ADDR(*pdep)) + PTX(la);
+}
+```
+
+### [练习2.2]
+请描述页目录项（Page Director Entry）和页表（Page Table Entry）中每个组成部分的含义和以及对ucore而言的潜在用处。
+
+Page Table Entry
+
+|名称|地址|ucore 中对应|含义|
+|--                   |--    |--        |--                                         |
+|Present              |0     |PTE_P     |是否保存在物理内存中                          |
+|Writeable            |1     |PTE_W     |是否可写                                    |
+|User/Supervisor      |2     |PTE_U     |访问权限                                    |
+|Write Through        |3     |PTE_PWT   |表示 CPU 可以直接写回内存                     |
+|Cache Disabled       |4     |PTE_PCD   |是否需要被 CPU 缓存                          |
+|Accessed             |5     |PTE_A     |该页是否被写过                               |
+|Dirty                |6     |PTE_D     |页面读取内容后，相应内容被修改了                |
+|0                    |7     |PTE_MBZ   |必须是0                                     |
+|Global               |8     |          |在 CR3 寄存器更新时无需刷新 TLB 中关于该页的地址 |
+|Avail                |9..11 |PTE_AVAIL |保留给软件使用                               |
+|Physical Page Address|12..31|          |指明 PTE 基质地址                            |
+
+Page Director Entry
+
+|名称|地址|ucore 中对应|含义|
+|--                   |--    |--        |--                                         |
+|Present              |0     |PTE_P     |是否保存在物理内存中                          |
+|Writeable            |1     |PTE_W     |是否可写                                    |
+|User/Supervisor      |2     |PTE_U     |访问权限                                    |
+|Write Through        |3     |PTE_PWT   |表示 CPU 可以直接写回内存                     |
+|Cache Disabled       |4     |PTE_PCD   |是否需要被 CPU 缓存                          |
+|Accessed             |5     |PTE_A     |该页是否被写过                               |
+|0                    |6     |PTE_MBZ   |必须是0                                     |
+|Page Size            |7     |PTE_PS    |页面大小                                    |
+|Ignored              |8     |          |                                           |
+|Avail                |9..11 |PTE_AVAIL |保留给软件使用                               |
+|Physical Page Address|12..31|          |指明 PTE 基质地址                            |
+
+### [练习2.3]
+如果ucore执行过程中访问内存，出现了页访问异常，请问硬件要做哪些事情？
+
+1. 将引发页访问异常的地址将被保存在cr2寄存器中。
+2. 触发14号中断（缺页错误）。
+
+
+## [练习3]
+释放某虚地址所在的页并取消对应二级页表项的映射
+```
+当释放一个包含某虚地址的物理内存页时，需要让对应此物理内存页的管理数据结构Page做相关的清除处理，使得此物理内存页成为空闲；另外还需把表示虚地址与物理地址对应关系的二级页表项清除。请仔细查看和理解page_remove_pte函数中的注释。为此，需要补全在 kern/mm/pmm.c中的page_remove_pte函数。
+
+请在实验报告中简要说明你的设计实现过程。请回答如下问题：
+
+数据结构Page的全局变量（其实是一个数组）的每一项与页表中的页目录项和页表项有无对应关系？如果有，其对应关系是啥？
+如果希望虚拟地址与物理地址相等，则需要如何修改lab2，完成此事？ 鼓励通过编程来具体完成这个问题
+```
+
+## Challenge 1
+buddy system（伙伴系统）分配算法
+```
+Buddy System算法把系统中的可用存储空间划分为存储块(Block)来进行管理, 每个存储块的大小必须是2的n次幂(Pow(2, n)), 即1, 2, 4, 8, 16, 32, 64, 128...
+参考伙伴分配器的一个极简实现， 在ucore中实现buddy system分配算法，要求有比较充分的测试用例说明实现的正确性，需要有设计文档。
+```
+
+## Challenge 2
+任意大小的内存单元slub分配算法
+```
+slub算法，实现两层架构的高效内存单元分配，第一层是基于页大小的内存分配，第二层是在第一层基础上实现基于任意大小的内存分配。可简化实现，能够体现其主体思想即可。
+参考linux的slub分配算法/，在ucore中实现slub分配算法。要求有比较充分的测试用例说明实现的正确性，需要有设计文档。
+```
+> Challenges是选做，做一个就很好了。完成Challenge的同学可单独提交Challenge。完成得好的同学可获得最终考试成绩的加分。
