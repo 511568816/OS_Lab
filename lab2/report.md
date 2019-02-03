@@ -170,30 +170,29 @@ default_free_pages(struct Page *base, size_t n) {
 
 get_pte 分析
 ```
-    // (1) find page directory entry
-    // pdep: page_directory_entry_pointer
-    pde_t *pdep = pgdir + PDX(la);
-    // (2) check if entry is not present
-    if (!(*pdep & PTE_P)) {
-        // (3) check if creating is needed, then alloc page for page table
-        if (!create)
-            return NULL;
-        struct Page *page = alloc_page();
-        // 如果分配页失败
-        if (page == NULL)
-            return NULL;
-        // (4) set page reference
-        set_page_ref(page, 1);
-        // (5) get linear address of page
-        uintptr_t pa = page2pa(page);
-        // (6) clear page content using memset
-        memset(KADDR(pa), 0, PGSIZE);
-        // (7) set page directory entry's permission
-        *pdep = pa | PTE_U | PTE_W | PTE_P;
-    }
-    // (8) return page table entry
-    return (pte_t *)KADDR(PDE_ADDR(*pdep)) + PTX(la);
+// (1) find page directory entry
+// pdep: page_directory_entry_pointer
+pde_t *pdep = pgdir + PDX(la);
+// (2) check if entry is not present
+if (!(*pdep & PTE_P)) {
+    // (3) check if creating is needed, then alloc page for page table
+    if (!create)
+        return NULL;
+    struct Page *page = alloc_page();
+    // 如果分配页失败
+    if (page == NULL)
+        return NULL;
+    // (4) set page reference
+    set_page_ref(page, 1);
+    // (5) get linear address of page
+    uintptr_t pa = page2pa(page);
+    // (6) clear page content using memset
+    memset(KADDR(pa), 0, PGSIZE);
+    // (7) set page directory entry's permission
+    *pdep = pa | PTE_U | PTE_W | PTE_P;
 }
+// (8) return page table entry
+return (pte_t *)KADDR(PDE_ADDR(*pdep)) + PTX(la);
 ```
 
 ### [练习2.2]
@@ -239,15 +238,51 @@ Page Director Entry
 
 
 ## [练习3]
-释放某虚地址所在的页并取消对应二级页表项的映射
-```
-当释放一个包含某虚地址的物理内存页时，需要让对应此物理内存页的管理数据结构Page做相关的清除处理，使得此物理内存页成为空闲；另外还需把表示虚地址与物理地址对应关系的二级页表项清除。请仔细查看和理解page_remove_pte函数中的注释。为此，需要补全在 kern/mm/pmm.c中的page_remove_pte函数。
 
-请在实验报告中简要说明你的设计实现过程。请回答如下问题：
+### [练习3.1]
+释放某虚地址所在的页并取消对应二级页表项的映射.
 
-数据结构Page的全局变量（其实是一个数组）的每一项与页表中的页目录项和页表项有无对应关系？如果有，其对应关系是啥？
-如果希望虚拟地址与物理地址相等，则需要如何修改lab2，完成此事？ 鼓励通过编程来具体完成这个问题
+page_remove_pte 分析
 ```
+// (1) check if this page table entry is present
+if (*ptep & PTE_P == 1) {
+    // (2) find corresponding page to pte
+    struct Page *page = pte2page(*ptep);
+    // (3) decrease page reference
+    page_ref_dec(page);
+    // (4) free this page when page reference reachs 0
+    if (page->ref == 0) 
+        free_page(page);
+    // (5) clear second page table entry
+    *ptep = 0;
+    // (6) flush tlb
+    tlb_invalidate(pgdir, la);
+}
+```
+
+### [练习3.2]
+数据结构Page的全局变量（其实是一个数组）的每一项与页表中的页目录项和页表项有无对应关系？如果有，其对应关系是什么？
+
+有关系。页目录项保存的物理页面地址（即某个页表）以及页表项保存的物理页面地址都对应于Page数组中的某一项。
+
+### [练习3.3]
+如果希望虚拟地址与物理地址相等，则需要如何修改lab2，完成此事？
+
+1. 修改 mm/memlayout.h 中的基地址
+```
+#define KERNBASE            0x00000000
+```
+
+2. 修改 tools/kernel.ld 中的虚地址
+```
+SECTIONS {
+    /* Load the kernel at this address: "." means the current address */
+    . = 0x00100000;
+    ...
+}
+```
+
+> 注：部分 check 中， assert 内默认 KERNBASE 不为零，因此会引发 assertion failed。删掉那些 assert 就可以了。
 
 
 ## Challenge 1
