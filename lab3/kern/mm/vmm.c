@@ -347,7 +347,7 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
     ret = -E_NO_MEM;
 
     pte_t *ptep=NULL;
-    /*LAB3 EXERCISE 1: YOUR CODE
+    /*LAB3 EXERCISE 1: 2017011313
     * Maybe you want help comment, BELOW comments can help you finish the code
     *
     * Some Useful MACROs and DEFINEs, you can use them in below implementation.
@@ -396,6 +396,44 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
         }
    }
 #endif
+    /*LAB3 EXERCISE 1: YOUR 2017011313*/
+    // (1) try to find a pte, if pte's PT(Page Table) isn't existed, then create a PT.
+    // (1) 尝试寻找 pte，如果 pte 不存在，就创建一个
+    // 所以第三个参数是 1
+    ptep = get_pte(mm->pgdir, addr, 1);
+    if (ptep == NULL) {
+        cprintf("get_pte in do_pgfault failed\n");
+        goto failed;
+    }
+    // (2) if the phy addr isn't exist, then alloc a page & map the phy addr with logical addr
+    // 找到了正确的入口，但是物理页面不存在，需要创建
+    if (*ptep == 0) {
+        if (pgdir_alloc_page(mm->pgdir, addr, perm) == NULL) {
+            cprintf("pgdir_alloc_page in do_pgfault failed\n");
+            goto failed;
+        }
+    }
+    // 页表项非空，尝试换入页面 
+    else {
+        if(swap_init_ok) {
+            struct Page *page = NULL;
+            // 把将要使用的页面从硬盘中交换至内存中
+            if (swap_in(mm, addr, &page) != 0) {
+                cprintf("pgdir_alloc_page in do_pgfault failed\n");
+                goto failed;
+            }
+            // 将页面物理地址与逻辑地址建立联系
+            page_insert(mm->pgdir, page, addr, perm);
+            // 将页面属性设置为：可被交换的
+            swap_map_swappable(mm, addr, page, 1);
+            // 设置给算法使用的变量：逻辑地址
+            page->pra_vaddr = addr;
+        }
+        else {
+            cprintf("no swap_init_ok but ptep is %x, failed\n",*ptep);
+            goto failed;
+        }
+    }
    ret = 0;
 failed:
     return ret;

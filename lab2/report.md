@@ -207,8 +207,8 @@ Page Table Entry
 |User/Supervisor      |2     |PTE_U     |访问权限                                    |
 |Write Through        |3     |PTE_PWT   |表示 CPU 可以直接写回内存                     |
 |Cache Disabled       |4     |PTE_PCD   |是否需要被 CPU 缓存                          |
-|Accessed             |5     |PTE_A     |该页是否被写过                               |
-|Dirty                |6     |PTE_D     |页面读取内容后，相应内容被修改了                |
+|Accessed             |5     |PTE_A     |该页是否被访问过                             |
+|Dirty                |6     |PTE_D     |该页是否被修改过                             |
 |0                    |7     |PTE_MBZ   |必须是0                                     |
 |Global               |8     |          |在 CR3 寄存器更新时无需刷新 TLB 中关于该页的地址 |
 |Avail                |9..11 |PTE_AVAIL |保留给软件使用                               |
@@ -223,7 +223,7 @@ Page Director Entry
 |User/Supervisor      |2     |PTE_U     |访问权限                                    |
 |Write Through        |3     |PTE_PWT   |表示 CPU 可以直接写回内存                     |
 |Cache Disabled       |4     |PTE_PCD   |是否需要被 CPU 缓存                          |
-|Accessed             |5     |PTE_A     |该页是否被写过                               |
+|Accessed             |5     |PTE_A     |该页是否被访问过                             |
 |0                    |6     |PTE_MBZ   |必须是0                                     |
 |Page Size            |7     |PTE_PS    |页面大小                                    |
 |Ignored              |8     |          |                                           |
@@ -240,7 +240,7 @@ Page Director Entry
 ## [练习3]
 
 ### [练习3.1]
-释放某虚地址所在的页并取消对应二级页表项的映射.
+释放某虚地址所在的页并取消对应二级页表项的映射。
 
 page_remove_pte 分析
 ```

@@ -85,10 +85,10 @@ readseg(uintptr_t va, uint32_t count, uint32_t offset) {
 /* bootmain - the entry of bootloader */
 void
 bootmain(void) {
-    // read the 1st page off disk
+    // 读取ELF的头部
     readseg((uintptr_t)ELFHDR, SECTSIZE * 8, 0);
 
-    // is this a valid ELF?
+    // 根据头部的成员变量e_magic判断ELF文件是否合法
     if (ELFHDR->e_magic != ELF_MAGIC) {
         goto bad;
     }
@@ -96,21 +96,21 @@ bootmain(void) {
     struct proghdr *ph, *eph;
 
     // load each program segment (ignores ph flags)
+    // ph为ELF的首地址
     ph = (struct proghdr *)((uintptr_t)ELFHDR + ELFHDR->e_phoff);
     eph = ph + ELFHDR->e_phnum;
+    // 通过readseg函数（后面分析），将ELF文件中的数据读入内存
     for (; ph < eph; ph ++) {
         readseg(ph->p_va & 0xFFFFFF, ph->p_memsz, ph->p_offset);
     }
-
-    // call the entry point from the ELF header
-    // note: does not return
+    // 根据ELF头部信息进入内核入口
     ((void (*)(void))(ELFHDR->e_entry & 0xFFFFFF))();
 
 bad:
-    outw(0x8A00, 0x8A00);
-    outw(0x8A00, 0x8E00);
+outw(0x8A00, 0x8A00);
+outw(0x8A00, 0x8E00);
 
-    /* do nothing */
-    while (1);
+/* do nothing */
+while (1);
 }
 

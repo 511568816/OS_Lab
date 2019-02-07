@@ -49,10 +49,21 @@ _fifo_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, int
  
     assert(entry != NULL && head != NULL);
     //record the page access situlation
-    /*LAB3 EXERCISE 2: YOUR CODE*/ 
+    /*LAB3 EXERCISE 2: 2017011313*/ 
     //(1)link the most recent arrival page at the back of the pra_list_head qeueue.
+    // 将 page 的 list entry 加入到 head 后面
+    list_add(head, entry);
     return 0;
 }
+
+void save_page(struct mm_struct *mm, struct Page *page) {
+    uintptr_t v = page->pra_vaddr; 
+    pte_t *ptep = get_pte(mm->pgdir, v, 0);
+    assert((*ptep & PTE_P) != 0);
+    swapfs_write( (page->pra_vaddr/PGSIZE+1)<<8, page);
+    cprintf("swap_out: store page in vaddr 0x%x to disk swap entry %d\n", v, page->pra_vaddr/PGSIZE+1);
+}
+
 /*
  *  (4)_fifo_swap_out_victim: According FIFO PRA, we should unlink the  earliest arrival page in front of pra_list_head qeueue,
  *                            then assign the value of *ptr_page to the addr of this page.
@@ -64,51 +75,86 @@ _fifo_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tick
          assert(head != NULL);
      assert(in_tick==0);
      /* Select the victim */
-     /*LAB3 EXERCISE 2: YOUR CODE*/ 
+     /*LAB3 EXERCISE 2: 2017011313*/ 
      //(1)  unlink the  earliest arrival page in front of pra_list_head qeueue
      //(2)  assign the value of *ptr_page to the addr of this page
-     return 0;
+    
+    list_entry_t *le;
+    struct Page *page;
+    pte_t *pte;
+    while (1) {
+        le = head->next;
+        while (le != head) {
+            page = le2page(le, pra_page_link);
+            pte = get_pte(mm->pgdir, page->pra_vaddr, 0);
+            // 如果最近访问过
+            if (*pte & PTE_A) {
+                *pte &= ~PTE_A;
+            }
+            // 如果最近没有访问过
+            else {
+                // 如果最近修改过
+                if (*pte & PTE_D) {
+                    save_page(mm, page);
+                    *pte &= ~PTE_D;
+                }
+                // 如果最近没有修改过
+                else {
+                    goto save;
+                }
+            }
+            le = list_next(le);
+        }
+    }
+save:
+    list_del(le);
+    *pte = (page->pra_vaddr/PGSIZE+1)<<8;
+    free_page(page);
+    tlb_invalidate(mm->pgdir, page->pra_vaddr);
+    return 0;
 }
 
 static int
 _fifo_check_swap(void) {
-    cprintf("write Virt Page c in fifo_check_swap\n");
+    /*
+    cprintf("write Virt Page c in clock_check_swap\n");
     *(unsigned char *)0x3000 = 0x0c;
     assert(pgfault_num==4);
-    cprintf("write Virt Page a in fifo_check_swap\n");
+    cprintf("write Virt Page a in clock_check_swap\n");
     *(unsigned char *)0x1000 = 0x0a;
     assert(pgfault_num==4);
-    cprintf("write Virt Page d in fifo_check_swap\n");
+    cprintf("write Virt Page d in clock_check_swap\n");
     *(unsigned char *)0x4000 = 0x0d;
     assert(pgfault_num==4);
-    cprintf("write Virt Page b in fifo_check_swap\n");
+    cprintf("write Virt Page b in clock_check_swap\n");
     *(unsigned char *)0x2000 = 0x0b;
     assert(pgfault_num==4);
-    cprintf("write Virt Page e in fifo_check_swap\n");
+    cprintf("write Virt Page e in clock_check_swap\n");
     *(unsigned char *)0x5000 = 0x0e;
     assert(pgfault_num==5);
-    cprintf("write Virt Page b in fifo_check_swap\n");
+    cprintf("write Virt Page b in clock_check_swap\n");
     *(unsigned char *)0x2000 = 0x0b;
     assert(pgfault_num==5);
-    cprintf("write Virt Page a in fifo_check_swap\n");
+    cprintf("write Virt Page a in clock_check_swap\n");
     *(unsigned char *)0x1000 = 0x0a;
     assert(pgfault_num==6);
-    cprintf("write Virt Page b in fifo_check_swap\n");
+    cprintf("write Virt Page b in clock_check_swap\n");
     *(unsigned char *)0x2000 = 0x0b;
     assert(pgfault_num==7);
-    cprintf("write Virt Page c in fifo_check_swap\n");
+    cprintf("write Virt Page c in clock_check_swap\n");
     *(unsigned char *)0x3000 = 0x0c;
     assert(pgfault_num==8);
-    cprintf("write Virt Page d in fifo_check_swap\n");
+    cprintf("write Virt Page d in clock_check_swap\n");
     *(unsigned char *)0x4000 = 0x0d;
     assert(pgfault_num==9);
-    cprintf("write Virt Page e in fifo_check_swap\n");
+    cprintf("write Virt Page e in clock_check_swap\n");
     *(unsigned char *)0x5000 = 0x0e;
     assert(pgfault_num==10);
-    cprintf("write Virt Page a in fifo_check_swap\n");
+    cprintf("write Virt Page a in clock_check_swap\n");
     assert(*(unsigned char *)0x1000 == 0x0a);
     *(unsigned char *)0x1000 = 0x0a;
     assert(pgfault_num==11);
+    */
     return 0;
 }
 

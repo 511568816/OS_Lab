@@ -50,7 +50,7 @@ idt_init(void) {
     // SETGATE(gate, istrap, sel, off, dpl)
     // 定义于kern/mm/mmu.h
     // gate：处理函数的入口地址
-    // istrap：系统段设置为1，中断门设置为0
+    // istrap：1 for a trap (= exception) gate, 0 for an interrupt gate
     // sel：段选择子 
     // off：偏移量
     // dpl：特权级
