@@ -54,6 +54,7 @@ PDE 用于寻找 PTE ，PTE 用于判断物理页面是否存在。如果不存�
 
 ### [练习2.1]
 **补充完成基于FIFO的页面替换算法。**
+
 fifo_map_swappable 分析
 ```
 static int
@@ -98,7 +99,7 @@ _fifo_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tick
 
 
 ### [练习2.2]
-***如果要在ucore上实现"extended clock页替换算法"请给你的设计方案，现有的swap_manager框架是否足以支持在ucore中实现此算法？如果是，请给你的设计方案。如果不是，请给出你的新的扩展和基此扩展的设计方案。并需要回答如下问题***
+**如果要在ucore上实现"extended clock页替换算法"请给你的设计方案，现有的swap_manager框架是否足以支持在ucore中实现此算法？如果是，请给你的设计方案。如果不是，请给出你的新的扩展和基此扩展的设计方案。并需要回答如下问题**
 
 1. 需要被换出的页的特征是什么？
 2. 在ucore中如何判断具有这样特征的页？
