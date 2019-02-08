@@ -86,7 +86,7 @@ static struct proc_struct *
 alloc_proc(void) {
     struct proc_struct *proc = kmalloc(sizeof(struct proc_struct));
     if (proc != NULL) {
-    //LAB4:EXERCISE1 YOUR CODE
+    //LAB4:EXERCISE1 2017011313
     /*
      * below fields in proc_struct need to be initialized
      *       enum proc_state state;                      // Process state
@@ -102,6 +102,18 @@ alloc_proc(void) {
      *       uint32_t flags;                             // Process flag
      *       char name[PROC_NAME_LEN + 1];               // Process name
      */
+    proc->state = PROC_UNINIT;  // 设置进程为未初始化状态
+    proc->pid = -1;             // 未初始化的的进程 id 为 -1
+    proc->runs = 0;             // 初始化时间片
+    proc->kstack = 0;           // 内存栈的地址
+    proc->need_resched = 0;     // 不需要重新调度设
+    proc->parent = NULL;        // 父节点设为空
+    proc->mm = NULL;            // 虚拟内存设为空
+    memset(&(proc->context), 0, sizeof(struct context));    // 无切换内容
+    proc->tf = NULL;            // 中断栈帧指针置为空
+    proc->cr3 = boot_cr3;       // CR3 寄存器，PDT 的基址
+    proc->flags = 0;            // 标志位
+    memset(proc->name, 0, PROC_NAME_LEN);   // 进程名
     }
     return proc;
 }
@@ -296,9 +308,39 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     //    5. insert proc_struct into hash_list && proc_list
     //    6. call wakeup_proc to make the new child process RUNNABLE
     //    7. set ret vaule using child proc's pid
+    // 1. call alloc_proc to allocate a proc_struct
+    if ((proc = alloc_proc()) == NULL)
+        goto fork_out;
+    // 设置子进程的父进程
+    proc->parent = current;
+    // 2. call setup_kstack to allocate a kernel stack for child process
+    if (setup_kstack(proc) != 0)
+        goto bad_fork_cleanup_proc;
+    // 3. call copy_mm to dup OR share mm according clone_flag
+    if (copy_mm(clone_flags, proc) != 0)
+        goto bad_fork_cleanup_kstack;
+    // 4. call copy_thread to setup tf & context in proc_struct
+    copy_thread(proc, stack, tf);
+    // 5. insert proc_struct into hash_list && proc_list
+    bool intr_flag;
+    // 进程锁，禁止此时产生中断
+    local_intr_save(intr_flag);
+    {
+        // 由于 ucore 允许嵌套中断,如果不加进程锁可能会产生重复的 pid
+        proc->pid = get_pid();
+        hash_proc(proc);
+        list_add(&proc_list, &(proc->list_link));
+        nr_process ++;
+    }
+    // 解锁进程锁
+    local_intr_restore(intr_flag);
+    // 6. call wakeup_proc to make the new child process RUNNABLE
+    wakeup_proc(proc);
+    // 7. set ret vaule using child proc's pid
+    ret = proc->pid;
+    
 fork_out:
     return ret;
-
 bad_fork_cleanup_kstack:
     put_kstack(proc);
 bad_fork_cleanup_proc:
