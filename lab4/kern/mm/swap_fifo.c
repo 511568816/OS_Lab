@@ -49,8 +49,10 @@ _fifo_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, int
  
     assert(entry != NULL && head != NULL);
     //record the page access situlation
-    /*LAB3 EXERCISE 2: YOUR CODE*/ 
+    /*LAB3 EXERCISE 2: 2017011313*/ 
     //(1)link the most recent arrival page at the back of the pra_list_head qeueue.
+    // 将 page 的 list entry 加入到 head 后面
+    list_add(head, entry);
     return 0;
 }
 /*
@@ -64,9 +66,17 @@ _fifo_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tick
          assert(head != NULL);
      assert(in_tick==0);
      /* Select the victim */
-     /*LAB3 EXERCISE 2: YOUR CODE*/ 
+     /*LAB3 EXERCISE 2: 2017011313*/ 
      //(1)  unlink the  earliest arrival page in front of pra_list_head qeueue
      //(2)  assign the value of *ptr_page to the addr of this page
+
+     // 找到队尾元素的 list entry
+     list_entry_t *tail_le = head->prev;
+     struct Page *tail_page = le2page(tail_le, pra_page_link);
+     // 删除队尾元素
+     list_del(tail_le);
+     // 把从内存中删除的页面内容保存到 ptr_page
+     *ptr_page = tail_page;
      return 0;
 }
 

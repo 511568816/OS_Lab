@@ -393,6 +393,23 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
         }
    }
 #endif
+    /*LAB3 EXERCISE 1: YOUR 2017011313*/
+    // (1) try to find a pte, if pte's PT(Page Table) isn't existed, then create a PT.
+    // (1) 尝试寻找 pte，如果 pte 不存在，就创建一个
+    // 所以第三个参数是 1
+    ptep = get_pte(mm->pgdir, addr, 1);
+    if (ptep == NULL) {
+        cprintf("get_pte in do_pgfault failed\n");
+        goto failed;
+    }
+    // (2) if the phy addr isn't exist, then alloc a page & map the phy addr with logical addr
+    // 找到了正确的入口，但是物理页面不存在，需要创建
+    if (*ptep == 0) {
+        if (pgdir_alloc_page(mm->pgdir, addr, perm) == NULL) {
+            cprintf("pgdir_alloc_page in do_pgfault failed\n");
+            goto failed;
+        }
+    }
    ret = 0;
 failed:
     return ret;
