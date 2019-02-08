@@ -103,5 +103,45 @@ bad_fork_cleanup_proc:
 是的。虽然 get_pid() 操作的是全局变量，但是由于增加了进程锁，所以产生的 pid 是唯一的。
 
 ## [练习3]
+
+### [练习3.1]
 **阅读代码，理解 proc_run 函数和它调用的函数如何完成进程切换的。**
 
+proc_run 分析
+```
+void
+proc_run(struct proc_struct *proc) {
+    // 如果要调度的进程不是当前进程
+    if (proc != current) {
+        bool intr_flag;
+        struct proc_struct *prev = current, *next = proc;
+        // 关闭中断，防止进程调度的过程中产生其他中断，导致嵌套的进程调度
+        local_intr_save(intr_flag);
+        {
+            // 当前进程设置为待调度进程
+            current = proc;
+            // 加载内核栈基地址
+            load_esp0(next->kstack + KSTACKSIZE);
+            // 加载页表基地址
+            lcr3(next->cr3);
+            // 保存原现成的寄存器，并设置当前进程的寄存器
+            switch_to(&(prev->context), &(next->context));
+        }
+        local_intr_restore(intr_flag);
+    }
+}
+```
+
+### [练习3.2]
+**在本实验的执行过程中，创建且运行了几个内核线程？**
+
+两个。
+
+- idleproc：ucore的第一个内核线程，完成内核中各个子系统的初始化，之后立即调度，执行其他进程。
+
+- initproc：“hello world”线程。
+
+### [练习3.2]
+**语句local_intr_save(intr_flag);....local_intr_restore(intr_flag);在这里有何作用?请说明理由**
+
+在进程调度前禁止产生中断，防止产生嵌套的进程调度。同时防止其他进程修改全局变量。
