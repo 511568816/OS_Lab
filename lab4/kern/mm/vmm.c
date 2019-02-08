@@ -410,6 +410,27 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
             goto failed;
         }
     }
+    // 页表项非空，尝试换入页面 
+    else {
+        if(swap_init_ok) {
+            struct Page *page = NULL;
+            // 把将要使用的页面从硬盘中交换至内存中
+            if (swap_in(mm, addr, &page) != 0) {
+                cprintf("pgdir_alloc_page in do_pgfault failed\n");
+                goto failed;
+            }
+            // 将页面物理地址与逻辑地址建立联系
+            page_insert(mm->pgdir, page, addr, perm);
+            // 将页面属性设置为：可被交换的
+            swap_map_swappable(mm, addr, page, 1);
+            // 设置给算法使用的变量：逻辑地址
+            page->pra_vaddr = addr;
+        }
+        else {
+            cprintf("no swap_init_ok but ptep is %x, failed\n",*ptep);
+            goto failed;
+        }
+    }
    ret = 0;
 failed:
     return ret;

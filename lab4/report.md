@@ -86,7 +86,7 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     wakeup_proc(proc);
     // 7. set ret vaule using child proc's pid
     ret = proc->pid;
-    
+
 fork_out:
     return ret;
 bad_fork_cleanup_kstack:
@@ -99,4 +99,9 @@ bad_fork_cleanup_proc:
 
 ### [练习2.2]
 **请说明ucore是否做到给每个新fork的线程一个唯一的id？请说明你的分析和理由。**
+
+是的。虽然 get_pid() 操作的是全局变量，但是由于增加了进程锁，所以产生的 pid 是唯一的。
+
+## [练习3]
+**阅读代码，理解 proc_run 函数和它调用的函数如何完成进程切换的。**
 

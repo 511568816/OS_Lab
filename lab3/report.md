@@ -5,33 +5,88 @@
 ### [练习1.1]
 **给未被映射的地址映射上物理页。**
 
-```
-完成do_pgfault（mm/vmm.c）函数，给未被映射的地址映射上物理页。设置访问权限 的时候需要参考页面所在 VMA 的权限，同时需要注意映射物理页时需要操作内存控制 结构所指定的页表，而不是内核的页表。
-```
-
-```
-请描述页目录项（Page Directory Entry）和页表项（Page Table Entry）中组成部分对ucore实现页替换算法的潜在用处。
-如果ucore的缺页服务例程在执行过程中访问内存，出现了页访问异常，请问硬件要做哪些事情？
-```
-
 do_pgfault 分析
 ```
-/*LAB3 EXERCISE 1: YOUR 2017011313*/
-// (1) try to find a pte, if pte's PT(Page Table) isn't existed, then create a PT.
-// (1) 尝试寻找 pte，如果 pte 不存在，就创建一个
-// 所以第三个参数是 1
-ptep = get_pte(mm->pgdir, addr, 1);
-if (ptep == NULL) {
-    cprintf("get_pte in do_pgfault failed\n");
-    goto failed;
-}
-// (2) if the phy addr isn't exist, then alloc a page & map the phy addr with logical addr
-// 找到了正确的入口，但是物理页面不存在，需要创建
-if (*ptep == 0) {
-    if (pgdir_alloc_page(mm->pgdir, addr, perm) == NULL) {
-        cprintf("pgdir_alloc_page in do_pgfault failed\n");
+int
+do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
+    int ret = -E_INVAL;
+    //try to find a vma which include addr
+    struct vma_struct *vma = find_vma(mm, addr);
+    pgfault_num++;
+    //If the addr is in the range of a mm's vma?
+    if (vma == NULL || vma->vm_start > addr) {
+        cprintf("not valid addr %x, and  can not find it in vma\n", addr);
         goto failed;
     }
+    //check the error_code
+    switch (error_code & 3) {
+    default:
+            /* error code flag : default is 3 ( W/R=1, P=1): write, present */
+    case 2: /* error code flag : (W/R=1, P=0): write, not present */
+        if (!(vma->vm_flags & VM_WRITE)) {
+            cprintf("do_pgfault failed: error code flag = write AND not present, but the addr's vma cannot write\n");
+            goto failed;
+        }
+        break;
+    case 1: /* error code flag : (W/R=0, P=1): read, present */
+        cprintf("do_pgfault failed: error code flag = read AND present\n");
+        goto failed;
+    case 0: /* error code flag : (W/R=0, P=0): read, not present */
+        if (!(vma->vm_flags & (VM_READ | VM_EXEC))) {
+            cprintf("do_pgfault failed: error code flag = read AND not present, but the addr's vma cannot read or exec\n");
+            goto failed;
+        }
+    }
+    uint32_t perm = PTE_U;
+    if (vma->vm_flags & VM_WRITE) {
+        perm |= PTE_W;
+    }
+    addr = ROUNDDOWN(addr, PGSIZE);
+    ret = -E_NO_MEM;
+    pte_t *ptep=NULL;
+
+    /*LAB3 EXERCISE 1: YOUR CODE*/
+    
+    // (1) try to find a pte, if pte's PT(Page Table) isn't existed, then create a PT.
+    // (1) 尝试寻找 pte，如果 pte 不存在，就创建一个
+    // 所以第三个参数是 1
+    ptep = get_pte(mm->pgdir, addr, 1);
+    if (ptep == NULL) {
+        cprintf("get_pte in do_pgfault failed\n");
+        goto failed;
+    }
+    // (2) if the phy addr isn't exist, then alloc a page & map the phy addr with logical addr
+    // 找到了正确的入口，但是物理页面不存在，需要创建
+    if (*ptep == 0) {
+        if (pgdir_alloc_page(mm->pgdir, addr, perm) == NULL) {
+            cprintf("pgdir_alloc_page in do_pgfault failed\n");
+            goto failed;
+        }
+    }
+    // 页表项非空，尝试换入页面 
+    else {
+        if(swap_init_ok) {
+            struct Page *page = NULL;
+            // 把将要使用的页面从硬盘中交换至内存中
+            if (swap_in(mm, addr, &page) != 0) {
+                cprintf("pgdir_alloc_page in do_pgfault failed\n");
+                goto failed;
+            }
+            // 将页面物理地址与逻辑地址建立联系
+            page_insert(mm->pgdir, page, addr, perm);
+            // 将页面属性设置为：可被交换的
+            swap_map_swappable(mm, addr, page, 1);
+            // 设置给算法使用的变量：逻辑地址
+            page->pra_vaddr = addr;
+        }
+        else {
+            cprintf("no swap_init_ok but ptep is %x, failed\n",*ptep);
+            goto failed;
+        }
+    }
+   ret = 0;
+failed:
+    return ret;
 }
 ```
 
