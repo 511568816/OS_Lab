@@ -458,33 +458,32 @@ copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end, bool share) {
             if ((nptep = get_pte(to, start, 1)) == NULL) {
                 return -E_NO_MEM;
             }
-        uint32_t perm = (*ptep & PTE_USER);
-        //get page from ptep
-        struct Page *page = pte2page(*ptep);
-        // alloc a page for process B
-        struct Page *npage=alloc_page();
-        assert(page!=NULL);
-        assert(npage!=NULL);
-        int ret=0;
-        /* LAB5:EXERCISE2 YOUR CODE
-         * replicate content of page to npage, build the map of phy addr of nage with the linear addr start
-         *
-         * Some Useful MACROs and DEFINEs, you can use them in below implementation.
-         * MACROs or Functions:
-         *    page2kva(struct Page *page): return the kernel vritual addr of memory which page managed (SEE pmm.h)
-         *    page_insert: build the map of phy addr of an Page with the linear addr la
-         *    memcpy: typical memory copy function
-         *
-         * (1) find src_kvaddr: the kernel virtual address of page
-         * (2) find dst_kvaddr: the kernel virtual address of npage
-         * (3) memory copy from src_kvaddr to dst_kvaddr, size is PGSIZE
-         * (4) build the map of phy addr of  nage with the linear addr start
-         */
-        void * kva_src = page2kva(page); // 返回父进程的内核虚拟页地址  
-        void * kva_dst = page2kva(npage); // 返回子进程的内核虚拟页地址  
-        memcpy(kva_dst, kva_src, PGSIZE); // 复制父进程到子进程  
-        ret = page_insert(to, npage, start, perm); // 建立子进程页地址起始位置与物理地址的映射关系(prem是权限)
-        assert(ret == 0);
+            uint32_t perm = (*ptep & PTE_USER);
+            //get page from ptep
+            struct Page *page = pte2page(*ptep);
+            // alloc a page for process B
+            struct Page *npage=alloc_page();
+            assert(page!=NULL);
+            assert(npage!=NULL);
+            int ret=0;
+            /* LAB5:EXERCISE2 YOUR CODE
+            * replicate content of page to npage, build the map of phy addr of nage with the linear addr start
+            *
+            * Some Useful MACROs and DEFINEs, you can use them in below implementation.
+            * MACROs or Functions:
+            *    page2kva(struct Page *page): return the kernel vritual addr of memory which page managed (SEE pmm.h)
+            *    page_insert: build the map of phy addr of an Page with the linear addr la
+            *    memcpy: typical memory copy function
+            *
+            * (1) find src_kvaddr: the kernel virtual address of page
+            * (2) find dst_kvaddr: the kernel virtual address of npage
+            * (3) memory copy from src_kvaddr to dst_kvaddr, size is PGSIZE
+            * (4) build the map of phy addr of  nage with the linear addr start
+            */
+            void * kva_src = page2kva(page); // 返回父进程的内核虚拟页地址  
+            void * kva_dst = page2kva(npage); // 返回子进程的内核虚拟页地址  
+            memcpy(kva_dst, kva_src, PGSIZE); // 复制父进程到子进程  
+            ret = page_insert(to, npage, start, perm); // 建立子进程页地址起始位置与物理地址的映射关系(prem 是权限)
         }
         start += PGSIZE;
     } while (start != 0 && start < end);
