@@ -87,18 +87,20 @@ static struct proc_struct *
 alloc_proc(void) {
     struct proc_struct *proc = kmalloc(sizeof(struct proc_struct));
     if (proc != NULL) {
-    proc->state = PROC_UNINIT;  // 设置进程为未初始化状态
-    proc->pid = -1;             // 未初始化的的进程 id 为 -1
-    proc->runs = 0;             // 初始化时间片
-    proc->kstack = 0;           // 内存栈的地址
-    proc->need_resched = 0;     // 不需要重新调度设
-    proc->parent = NULL;        // 父节点设为空
-    proc->mm = NULL;            // 虚拟内存设为空
-    memset(&(proc->context), 0, sizeof(struct context));    // 无切换内容
-    proc->tf = NULL;            // 中断栈帧指针置为空
-    proc->cr3 = boot_cr3;       // CR3 寄存器，PDT 的基址
-    proc->flags = 0;            // 标志位
-    memset(proc->name, 0, PROC_NAME_LEN);   // 进程名
+        proc->state = PROC_UNINIT;  // 设置进程为未初始化状态
+        proc->pid = -1;             // 未初始化的的进程 id 为 -1
+        proc->runs = 0;             // 初始化时间片
+        proc->kstack = 0;           // 内存栈的地址
+        proc->need_resched = 0;     // 不需要重新调度设
+        proc->parent = NULL;        // 父节点设为空
+        proc->mm = NULL;            // 虚拟内存设为空
+        memset(&(proc->context), 0, sizeof(struct context));    // 无切换内容
+        proc->tf = NULL;            // 中断栈帧指针置为空
+        proc->cr3 = boot_cr3;       // CR3 寄存器，PDT 的基址
+        proc->flags = 0;            // 标志位
+        memset(proc->name, 0, PROC_NAME_LEN);   // 进程名
+        proc->wait_state = 0;
+        proc->cptr = proc->optr = proc->yptr = NULL;
     }
     return proc;
 }
@@ -382,8 +384,8 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
         // 由于 ucore 允许嵌套中断,如果不加进程锁可能会产生重复的 pid
         proc->pid = get_pid();
         hash_proc(proc);
-        list_add(&proc_list, &(proc->list_link));
-        nr_process ++;
+        // 设置进程的相关链接
+        set_links(proc);
     }
     // 解锁进程锁
     local_intr_restore(intr_flag);
@@ -580,7 +582,7 @@ load_icode(unsigned char *binary, size_t size) {
     //(6) setup trapframe for user environment
     struct trapframe *tf = current->tf;
     memset(tf, 0, sizeof(struct trapframe));
-    /* LAB5:EXERCISE1 YOUR CODE
+    /* LAB5:EXERCISE1 2017011313
      * should set tf_cs,tf_ds,tf_es,tf_ss,tf_esp,tf_eip,tf_eflags
      * NOTICE: If we set trapframe correctly, then the user level process can return to USER MODE from kernel. So
      *          tf_cs should be USER_CS segment (see memlayout.h)
@@ -589,6 +591,11 @@ load_icode(unsigned char *binary, size_t size) {
      *          tf_eip should be the entry point of this binary program (elf->e_entry)
      *          tf_eflags should be set to enable computer to produce Interrupt
      */
+    tf->tf_cs = USER_CS;
+    tf->tf_ds = tf->tf_es = tf->tf_ss = USER_DS;
+    tf->tf_esp = USTACKTOP;
+    tf->tf_eip = elf->e_entry;
+    tf->tf_eflags = FL_IF;
     ret = 0;
 out:
     return ret;
@@ -764,7 +771,7 @@ user_main(void *arg) {
 #ifdef TEST
     KERNEL_EXECVE2(TEST, TESTSTART, TESTSIZE);
 #else
-    KERNEL_EXECVE(exit);
+    KERNEL_EXECVE(hello);
 #endif
     panic("user_main execve failed.\n");
 }
