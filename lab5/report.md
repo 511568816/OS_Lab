@@ -196,3 +196,188 @@ ret = page_insert(to, npage, start, perm); // 建立子进程页地址起始位�
 **简要说明如何设计实现”Copy on Write 机制“，给出概要设计。**
 
 在 copy_range 中，不进行复制，将 pde_t *to（子进程） 赋值为 pde_t *from（父进程），并将该页的写入位置0（只读）。在需要写时会产生缺页错误，此时在 do_pgfault 中给子进程创建 PTE ，并取代原先 PDE 中的项。
+
+## [练习3]
+**阅读分析源代码，理解进程执行 fork/exec/wait/exit 的实现，以及系统调用的实现。**
+
+**fork 分析**
+
+fork -> sys_fork -> syscall(SYS_fork) -> trap_dispatch -> do_fork
+
+1. 分配并初始化进程控制块(alloc_proc 函数)。
+2. 分配并初始化内核栈(setup_stack 函数)。
+3. 根据 clone_flag 标志复制或共享进程内存管理结构(copy_mm 函数)。
+4. 设置进程在内核(将来也包括用户态)正常运行和调度所需的中断帧和执行上下文(copy_thread 函数)。
+5. 把设置好的进程控制块放入 hash_list 和 proc_list 两个全局进程链表中。
+6. 自此,进程已经准备好执行了,把进程状态设置为“就绪”态。
+7. 设置返回码为子进程的 id 号。
+
+**exec 分析**
+
+exec -> ... -> do_execve
+
+do_execve 主要完成了两件事：
+
+1. 调用 exit_mmap、put_pgdir、mm_destroy 删除并释放掉当前进程内存空间的页表信息、内存管理信息。
+
+2. 调用 load_icode 加载 ELF 格式的用户程序。
+
+**wait 分析**
+
+wait -> ... -> do_wait
+
+循环查询子进程的状态，直到一个正在等待的子进程的状态变成 Zombie 状态，这时完成这个子进程的剩余资源回收工作，释放子进程的空间。
+
+do_wait 代码分析
+```
+// do_wait - wait one OR any children with PROC_ZOMBIE state, and free memory space of kernel stack
+//         - proc struct of this child.
+// NOTE: only after do_wait function, all resources of the child proces are free.
+int
+do_wait(int pid, int *code_store) {
+    struct mm_struct *mm = current->mm;
+    if (code_store != NULL) {
+        if (!user_mem_check(mm, (uintptr_t)code_store, sizeof(int), 1)) {
+            return -E_INVAL;
+        }
+    }
+
+    struct proc_struct *proc;
+    bool intr_flag, haskid;
+repeat:
+    haskid = 0;
+    // 如果 pid!=0，表示只找一个进程 id 号为 pid 的退出状态的子进程，否则找任意一个处于退出状态的子进程
+    if (pid != 0) {
+        proc = find_proc(pid);
+        if (proc != NULL && proc->parent == current) {
+            haskid = 1;
+            if (proc->state == PROC_ZOMBIE) {
+                goto found;
+            }
+        }
+    }
+    else {
+        proc = current->cptr;
+        for (; proc != NULL; proc = proc->optr) {
+            haskid = 1;
+            if (proc->state == PROC_ZOMBIE) {
+                goto found;
+            }
+        }
+    }
+    // 如果此子进程的执行状态不为 PROC_ZOMBIE，表明此子进程还没有退出
+    if (haskid) {
+        // 当前进程设置执行状态为 PROC_SLEEPING（睡眠)
+        current->state = PROC_SLEEPING;
+        // 睡眠原因为 WT_CHILD (即等待子进程退出)
+        current->wait_state = WT_CHILD;
+        // 调用schedule()函数选择新的进程执行
+        schedule();
+        if (current->flags & PF_EXITING) {
+            do_exit(-E_KILLED);
+        }
+        goto repeat;
+    }
+    return -E_BAD_PROC;
+
+// 找到处于退出状态的子进程
+found:
+    if (proc == idleproc || proc == initproc) {
+        panic("wait idleproc or initproc.\n");
+    }
+    if (code_store != NULL) {
+        *code_store = proc->exit_code;
+    }
+    // 把子进程控制块从两个进程队列proc_list和hash_list中删除，并释放子进程的内核堆栈和进程控制块
+    local_intr_save(intr_flag);
+    {
+        unhash_proc(proc);
+        remove_links(proc);
+    }
+    local_intr_restore(intr_flag);
+    put_kstack(proc);
+    kfree(proc);
+    return 0;
+}
+```
+
+**exit 分析**
+
+exit -> ... -> do_exit
+
+回收当前进程所占的大部分内存资源,并通知父进程完成最后的回收工作。
+
+do_exit 代码分析
+```
+// do_exit - called by sys_exit
+//   1. call exit_mmap & put_pgdir & mm_destroy to free the almost all memory space of process
+//   2. set process' state as PROC_ZOMBIE, then call wakeup_proc(parent) to ask parent reclaim itself.
+//   3. call scheduler to switch to other process
+int
+do_exit(int error_code) {
+    // 先判断是否是用户进程，如果是，则开始回收此用户进程所占用的用户态虚拟内存空间
+    if (current == idleproc) {
+        panic("idleproc exit.\n");
+    }
+    if (current == initproc) {
+        panic("initproc exit.\n");
+    }
+    
+    struct mm_struct *mm = current->mm;
+    if (mm != NULL) {
+        lcr3(boot_cr3);
+        if (mm_count_dec(mm) == 0) {
+            exit_mmap(mm);
+            put_pgdir(mm);
+            mm_destroy(mm);
+        }
+        current->mm = NULL;
+    }
+    // 设置当前进程状态为PROC_ZOMBIE
+    current->state = PROC_ZOMBIE;
+    // 设置当前进程的退出码为error_code
+    current->exit_code = error_code;
+    
+    bool intr_flag;
+    struct proc_struct *proc;
+    local_intr_save(intr_flag);
+    {
+        proc = current->parent;
+        if (proc->wait_state == WT_CHILD) {
+            // 唤醒父进程，让父进程来帮子进程完成最后的资源回收工作
+            wakeup_proc(proc);
+        }
+        // 如果当前进程还有子进程,则需要把这些子进程的父进程指针设置为内核线程 init
+        while (current->cptr != NULL) {
+            proc = current->cptr;
+            current->cptr = proc->optr;
+    
+            proc->yptr = NULL;
+            if ((proc->optr = initproc->cptr) != NULL) {
+                initproc->cptr->yptr = proc;
+            }
+            proc->parent = initproc;
+            initproc->cptr = proc;
+            if (proc->state == PROC_ZOMBIE) {
+                if (initproc->wait_state == WT_CHILD) {
+                    wakeup_proc(initproc);
+                }
+            }
+        }
+    }
+    local_intr_restore(intr_flag);
+    
+    schedule();
+    panic("do_exit will not return!! %d.\n", current->pid);
+}
+```
+
+**系统调用的实现**
+
+通过软中断发起系统调用，进入 syscall()，由于参数不同，可以调用不同的功能。
+
+**请给出ucore中一个用户态进程的执行状态生命周期图（包执行状态，执行状态之间的变换关系，以及产生变换的事件或函数调用）。（字符方式画即可）**
+
+![状态生命周期图](https://upload-images.jianshu.io/upload_images/8878550-f94af7f2702c5c90.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/556 "状态图")
+
+进程创建(fork()函数) -> 进程就绪（proc -> state == RUNNABLE）-> 进程执行（schedule()函数) -> 进程退出（do_exit()） -> 进程结束(do_wait()回收kstack和proc_struct)

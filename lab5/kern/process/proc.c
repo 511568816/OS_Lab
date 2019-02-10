@@ -409,6 +409,7 @@ bad_fork_cleanup_proc:
 //   3. call scheduler to switch to other process
 int
 do_exit(int error_code) {
+    // 先判断是否是用户进程，如果是，则开始回收此用户进程所占用的用户态虚拟内存空间
     if (current == idleproc) {
         panic("idleproc exit.\n");
     }
@@ -426,7 +427,9 @@ do_exit(int error_code) {
         }
         current->mm = NULL;
     }
+    // 设置当前进程状态为PROC_ZOMBIE
     current->state = PROC_ZOMBIE;
+    // 设置当前进程的退出码为error_code
     current->exit_code = error_code;
     
     bool intr_flag;
@@ -435,8 +438,10 @@ do_exit(int error_code) {
     {
         proc = current->parent;
         if (proc->wait_state == WT_CHILD) {
+            // 唤醒父进程，让父进程来帮子进程完成最后的资源回收工作
             wakeup_proc(proc);
         }
+        // 如果当前进程还有子进程,则需要把这些子进程的父进程指针设置为内核线程 init
         while (current->cptr != NULL) {
             proc = current->cptr;
             current->cptr = proc->optr;
@@ -669,6 +674,7 @@ do_wait(int pid, int *code_store) {
     bool intr_flag, haskid;
 repeat:
     haskid = 0;
+    // 如果 pid!=0，表示只找一个进程 id 号为 pid 的退出状态的子进程，否则找任意一个处于退出状态的子进程
     if (pid != 0) {
         proc = find_proc(pid);
         if (proc != NULL && proc->parent == current) {
@@ -687,9 +693,13 @@ repeat:
             }
         }
     }
+    // 如果此子进程的执行状态不为 PROC_ZOMBIE，表明此子进程还没有退出
     if (haskid) {
+        // 当前进程设置执行状态为 PROC_SLEEPING（睡眠)
         current->state = PROC_SLEEPING;
+        // 睡眠原因为 WT_CHILD (即等待子进程退出)
         current->wait_state = WT_CHILD;
+        // 调用schedule()函数选择新的进程执行
         schedule();
         if (current->flags & PF_EXITING) {
             do_exit(-E_KILLED);
@@ -698,6 +708,7 @@ repeat:
     }
     return -E_BAD_PROC;
 
+// 找到处于退出状态的子进程
 found:
     if (proc == idleproc || proc == initproc) {
         panic("wait idleproc or initproc.\n");
@@ -705,6 +716,7 @@ found:
     if (code_store != NULL) {
         *code_store = proc->exit_code;
     }
+    // 把子进程控制块从两个进程队列proc_list和hash_list中删除，并释放子进程的内核堆栈和进程控制块
     local_intr_save(intr_flag);
     {
         unhash_proc(proc);
