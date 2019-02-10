@@ -211,10 +211,7 @@ trap_dispatch(struct trapframe *tf) {
     then you can add code here. 
 #endif
         ++ticks;
-        if (ticks % TICK_NUM == 0) {
-            // 当前进程的时间片用完了
-            current->need_resched = 1;
-        }
+        run_timer_list(); // 更新定时器，并根据参数调用调度算法  
         /* LAB6 YOUR CODE */
         /* you should upate you lab5 code
          * IMPORTANT FUNCTIONS:

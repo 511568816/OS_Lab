@@ -82,17 +82,22 @@ schedule(void) {
     local_intr_save(intr_flag);
     {
         current->need_resched = 0;
+        // 如果当前进城就绪，就加入队列中
         if (current->state == PROC_RUNNABLE) {
             sched_class_enqueue(current);
         }
+        // 如果找到了下一个就绪进程，就从队列中删除它
         if ((next = sched_class_pick_next()) != NULL) {
             sched_class_dequeue(next);
         }
+        // 如果无就绪进程，就运行空闲进程
         if (next == NULL) {
             next = idleproc;
         }
+        // 进程被调用次数加一
         next->runs ++;
         if (next != current) {
+            // 运行就绪进程
             proc_run(next);
         }
     }
