@@ -1,7 +1,6 @@
 # Lab6 report
 
-## [练习0]
-**填写已有实验**
+## [练习0] 填写已有实验
 
 需要改进的函数有：alloc_proc、trap_dispatch。
 
@@ -46,8 +45,7 @@ case IRQ_OFFSET + IRQ_TIMER:
 ```
 
 
-## [练习1]
-**使用 Round Robin 调度算法**
+## [练习1] 使用 Round Robin 调度算法
 
 ### [练习1.1]
 **理解并分析sched_class中各个函数指针的用法。**
