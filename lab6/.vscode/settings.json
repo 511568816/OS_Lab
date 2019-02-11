@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "ulib.h": "c",
+        "defs.h": "c"
+    }
+}

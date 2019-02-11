@@ -40,7 +40,7 @@ trap_dispatch
 ```
 case IRQ_OFFSET + IRQ_TIMER:
     ++ticks;
-    run_timer_list(); // 更新定时器，并根据参数调用调度算法  
+    sched_class_proc_tick(current);
     break;
 ```
 
@@ -166,3 +166,86 @@ schedule(void) {
 1. 假设一共 4 个队列。进程在进入待调度的队列等待时，首先进入优先级最高的 Q0 队列等待。
 2. 每次根据优先级随机选择一个队列，队列的被选中概率为 1 - (2^k / (2^4 - 1))，k 为进程优先级。如果被选中队列中无就绪进程，则从高优先级队列中依次查找就绪进程。每个队列的时间片为 2^k * 10 ms 。
 3. Q0、Q1、Q2 队列使用 FIFO 算法，若时间片用完且未完成，则进入低一级队列。Q3 队列使用 Round Robin 算法。
+
+## [练习2] 实现 Stride Scheduling 调度算法
+
+stride_init 分析
+```
+static void
+stride_init(struct run_queue *rq) {
+    // (1) init the ready process list: rq->run_list
+    list_init(&(rq->run_list));
+    // (2) init the run pool: rq->lab6_run_pool
+    rq->lab6_run_pool = NULL;
+    // (3) set number of process: rq->proc_num to 0
+    rq->proc_num = 0;
+}
+```
+
+stride_enqueue 分析
+```
+static void
+stride_enqueue(struct run_queue *rq, struct proc_struct *proc) {
+    // (1) insert the proc into rq correctly
+    rq->lab6_run_pool = skew_heap_insert(rq->lab6_run_pool, &(proc->lab6_run_pool), proc_stride_comp_f);
+    // (2) recalculate proc->time_slice
+    if (proc->time_slice == 0 || proc->time_slice > rq->max_time_slice) {
+        proc->time_slice = rq->max_time_slice;
+    }
+    // (3) set proc->rq pointer to rq
+    proc->rq = rq;
+    // (4) increase rq->proc_num
+    rq->proc_num ++;
+}
+```
+
+stride_dequeue 分析
+```
+static void
+stride_dequeue(struct run_queue *rq, struct proc_struct *proc) {
+    // (1) remove the proc from rq correctly
+    rq->lab6_run_pool = skew_heap_remove(rq->lab6_run_pool, &(proc->lab6_run_pool), proc_stride_comp_f);
+    --rq->proc_num;
+}
+```
+
+stride_pick_next 分析
+```
+static struct proc_struct *
+stride_pick_next(struct run_queue *rq) {
+    if (rq->lab6_run_pool == NULL) 
+        return NULL;
+    // (1) get a  proc_struct pointer p  with the minimum value of stride
+    struct proc_struct *p = le2proc(rq->lab6_run_pool, lab6_run_pool);
+    unsigned int before = p->lab6_stride;
+    // (2) update p;s stride value: p->lab6_stride
+    if (p->lab6_priority == 0)
+        p->lab6_stride += BIG_STRIDE;
+    else 
+        p->lab6_stride += BIG_STRIDE / p->lab6_priority; // 只有该比例才是严格线性的，能够通过测试
+    // (3) return p
+    return p;
+}
+```
+
+stride_proc_tick 分析
+```
+static void
+stride_proc_tick(struct run_queue *rq, struct proc_struct *proc) {
+    if (proc->time_slice > 0) {
+        // 剩余时间片减一
+        proc->time_slice --;
+    }
+    // 如果已经没有剩余时间片
+    if (proc->time_slice == 0) {
+        // 则需要重新调度
+        proc->need_resched = 1;
+    }
+}
+```
+
+> 由于 int 长度为 32 位，所以 BIG_STRIDE 取值为 int 范围内的最大整数：0x7FFFFFFF 。
+
+**对于测试用例的理解**
+
+run-priority 运行的文件是priority.c ，程序创建了五个子进程，优先级为 1..5 ，每个程序运行的时间均位 1s ，所以优先级越高，运行次数越少。stride_pick_next 中，只要 **步长** 和 **p->lab6_priority** 负相关即可满足。但是如果需要满足优先级和运行次数成线性关系，则需要：**步长 = BIG_STRIDE / p->lab6_priority** 。
