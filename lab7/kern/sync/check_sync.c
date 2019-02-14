@@ -86,7 +86,9 @@ void phi_test_sema(i) /* i：哲学家号码从0到N-1 */
     if(state_sema[i]==HUNGRY&&state_sema[LEFT]!=EATING
             &&state_sema[RIGHT]!=EATING)
     {
+        // 修改该哲学家的状态
         state_sema[i]=EATING;
+        // 表示该哲学家已经获得了叉子
         up(&s[i]);
     }
 }
@@ -179,29 +181,37 @@ void phi_test_condvar (i) {
 
 
 void phi_take_forks_condvar(int i) {
-     down(&(mtp->mutex));
+    down(&(mtp->mutex));
 //--------into routine in monitor--------------
-     // LAB7 EXERCISE1: YOUR CODE
-     // I am hungry
-     // try to get fork
+    // I am hungry
+    state_condvar[i] = HUNGRY;
+    // 尝试获得叉子
+    phi_test_condvar(i);
+    // 如果没取得叉子
+    if (state_condvar[i] != EATING) {
+        // 得不到叉子就阻塞
+        cond_wait(&mtp->cv[i]);
+    }
 //--------leave routine in monitor--------------
-      if(mtp->next_count>0)
-         up(&(mtp->next));
-      else
-         up(&(mtp->mutex));
+    if(mtp->next_count>0)
+        up(&(mtp->next));
+    else
+        up(&(mtp->mutex));
 }
 
 void phi_put_forks_condvar(int i) {
-     down(&(mtp->mutex));
-
+    down(&(mtp->mutex));
 //--------into routine in monitor--------------
-     // LAB7 EXERCISE1: YOUR CODE
-     // I ate over
-     // test left and right neighbors
+    // LAB7 EXERCISE1: YOUR CODE
+    // I ate over
+    state_condvar[i]=THINKING;
+    // test left and right neighbors
+    phi_test_condvar(LEFT);
+    phi_test_condvar(RIGHT);
 //--------leave routine in monitor--------------
-     if(mtp->next_count>0)
+    if(mtp->next_count>0)
         up(&(mtp->next));
-     else
+    else
         up(&(mtp->mutex));
 }
 
@@ -214,11 +224,15 @@ int philosopher_using_condvar(void * arg) { /* arg is the No. of philosopher 0~N
     while(iter++<TIMES)
     { /* iterate*/
         cprintf("Iter %d, No.%d philosopher_condvar is thinking\n",iter,i); /* thinking*/
+        // 哲学家思考
         do_sleep(SLEEP_TIME);
+        // 哲学家尝试拿起左右两边的叉子，可能被阻塞
         phi_take_forks_condvar(i); 
         /* need two forks, maybe blocked */
         cprintf("Iter %d, No.%d philosopher_condvar is eating\n",iter,i); /* eating*/
+        // 哲学家开始吃饭
         do_sleep(SLEEP_TIME);
+        // 哲学家把左右两边的叉子放了回去
         phi_put_forks_condvar(i); 
         /* return two forks back*/
     }
@@ -231,7 +245,9 @@ void check_sync(void){
     int i;
 
     //check semaphore
+    // 初始化信号量
     sem_init(&mutex, 1);
+    // 创建五个线程（哲学家）
     for(i=0;i<N;i++){
         sem_init(&s[i], 0);
         int pid = kernel_thread(philosopher_using_semaphore, (void *)i, 0);
@@ -243,6 +259,7 @@ void check_sync(void){
     }
 
     //check condition variable
+
     monitor_init(&mt, N);
     for(i=0;i<N;i++){
         state_condvar[i]=THINKING;

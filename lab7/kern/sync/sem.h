@@ -6,7 +6,9 @@
 #include <wait.h>
 
 typedef struct {
+    // 计数器
     int value;
+    // 等待队列
     wait_queue_t wait_queue;
 } semaphore_t;
 
