@@ -589,7 +589,7 @@ sfs_io_nolock(struct sfs_fs *sfs, struct sfs_inode *sin, void *buf, off_t offset
     uint32_t blkno = offset / SFS_BLKSIZE;          // The NO. of Rd/Wr begin block
     uint32_t nblks = endpos / SFS_BLKSIZE - blkno;  // The size of Rd/Wr blocks
 
-  //LAB8:EXERCISE1 2017011313 HINT: call sfs_bmap_load_nolock, sfs_rbuf, sfs_rblock,etc. read different kind of blocks in file
+  //LAB8:EXERCISE1 YOUR CODE HINT: call sfs_bmap_load_nolock, sfs_rbuf, sfs_rblock,etc. read different kind of blocks in file
 	/*
 	 * (1) If offset isn't aligned with the first block, Rd/Wr some content from offset to the end of the first block
 	 *       NOTICE: useful function: sfs_bmap_load_nolock, sfs_buf_op
@@ -599,43 +599,38 @@ sfs_io_nolock(struct sfs_fs *sfs, struct sfs_inode *sin, void *buf, off_t offset
      * (3) If end position isn't aligned with the last block, Rd/Wr some content from begin to the (endpos % SFS_BLKSIZE) of the last block
 	 *       NOTICE: useful function: sfs_bmap_load_nolock, sfs_buf_op	
 	*/
-    // 读取第一块的数据
-    if ((blkoff = offset % SFS_BLKSIZE) != 0) {
-        // 计算第一个块的大小
-        size = (nblks != 0) ? (SFS_BLKSIZE - blkoff) : (endpos - offset);
-        // 读取第一个块
-        if ((ret = sfs_bmap_load_nolock(sfs, sin, blkno, &ino)) != 0) {
-            goto out;
-        }
-        // 完成对第一块的读写操作
-        if ((ret = sfs_buf_op(sfs, buf, size, ino, blkoff)) != 0) {
-            goto out;
-        }
-        alen += size;
-        if (nblks == 0) {
-            goto out;
-        }
-        buf += size, blkno ++, nblks --;
+    // 读取第一页，可能不对齐
+    if ((ret = sfs_bmap_load_nolock(sfs, sin, blkno, &ino)) != 0) 
+        goto out;
+    blkoff = offset % SFS_BLKSIZE;
+    // 计算第一个块的大小
+    size = (nblks != 0) ? (SFS_BLKSIZE - blkoff) : (endpos - offset);
+    if ((ret = sfs_buf_op(sfs, buf, size, ino, blkoff)) != 0) {
+        goto out;
     }
-    // 读取中间完整块（大小为 SFS_BLKSIZE）的数据
-    for (int i = blkno + 1; i < blkno + nblks; ++i) {
-        if ((ret = sfs_bmap_load_nolock(sfs, sin, i, &ino)) != 0) {
-            goto out;
+    alen += size;
+    // 如果超过一页的话
+    if (nblks != 0) {
+        // 读取第二页到第 n-1 页，这些页大小均为 SFS_BLKSIZE
+        for (int i = blkno + 1; i < blkno + nblks; ++i) {
+            if ((ret = sfs_bmap_load_nolock(sfs, sin, i, &ino)) != 0) {
+                goto out;
+            }
+            if ((ret = sfs_block_op(sfs, buf + alen, ino, 1)) != 0) {
+                goto out;
+            }
+            alen += SFS_BLKSIZE;
         }
-        if ((ret = sfs_block_op(sfs, buf + alen, ino, 1)) != 0) {
-            goto out;
+        // 读取最后一页，可能不对齐
+        if (endpos % SFS_BLKSIZE != 0) {
+            if ((ret = sfs_bmap_load_nolock(sfs, sin, blkno + nblks, &ino)) != 0) {
+                goto out;
+            }
+            if ((ret = sfs_buf_op(sfs, buf + alen, endpos % SFS_BLKSIZE, ino, 0)) != 0) {
+                goto out;
+            }
+            alen += endpos % SFS_BLKSIZE;
         }
-        alen += SFS_BLKSIZE;
-    }
-    // 读取最后一块的数据
-    if ((size = endpos % SFS_BLKSIZE) != 0) {
-        if ((ret = sfs_bmap_load_nolock(sfs, sin, blkno, &ino)) != 0) {
-            goto out;
-        }
-        if ((ret = sfs_buf_op(sfs, buf, size, ino, 0)) != 0) {
-            goto out;
-        }
-        alen += size;
     }
 out:
     *alenp = alen;

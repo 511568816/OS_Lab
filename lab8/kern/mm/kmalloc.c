@@ -184,16 +184,19 @@ static void slob_free(void *block, int size)
 	spin_unlock_irqrestore(&slob_lock, flags);
 }
 
-
+void check_slab(void) {
+  cprintf("check_slab() succeeded!\n");
+}
 
 void
-slob_init(void) {
+slab_init(void) {
   cprintf("use SLOB allocator\n");
+  check_slab();
 }
 
 inline void 
 kmalloc_init(void) {
-    slob_init();
+    slab_init();
     cprintf("kmalloc_init() succeeded!\n");
 }
 
