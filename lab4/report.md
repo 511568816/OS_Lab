@@ -14,25 +14,25 @@ static struct proc_struct *
 alloc_proc(void) {
     struct proc_struct *proc = kmalloc(sizeof(struct proc_struct));
     if (proc != NULL) {
-    proc->state = PROC_UNINIT;  // 设置进程为未初始化状态
-    proc->pid = -1;             // 未初始化的的进程 id 为 -1
-    proc->runs = 0;             // 初始化时间片
-    proc->kstack = 0;           // 内存栈的地址
-    proc->need_resched = 0;     // 不需要重新调度设
-    proc->parent = NULL;        // 父节点设为空
-    proc->mm = NULL;            // 虚拟内存设为空
-    memset(&(proc->context), 0, sizeof(struct context));    // 无切换内容
-    proc->tf = NULL;            // 中断栈帧指针置为空
-    proc->cr3 = boot_cr3;       // CR3 寄存器，PDT 的基址
-    proc->flags = 0;            // 标志位
-    memset(proc->name, 0, PROC_NAME_LEN);   // 进程名
+        proc->state = PROC_UNINIT;  // 设置进程为未初始化状态
+        proc->pid = -1;             // 未初始化的的进程 id 为 -1
+        proc->runs = 0;             // 初始化时间片
+        proc->kstack = 0;           // 内存栈的地址
+        proc->need_resched = 0;     // 不需要重新调度设
+        proc->parent = NULL;        // 父节点设为空
+        proc->mm = NULL;            // 虚拟内存设为空
+        memset(&(proc->context), 0, sizeof(struct context));    // 无切换内容
+        proc->tf = NULL;            // 中断栈帧指针置为空
+        proc->cr3 = boot_cr3;       // CR3 寄存器，PDT 的基址
+        proc->flags = 0;            // 标志位
+        memset(proc->name, 0, PROC_NAME_LEN);   // 进程名
     }
     return proc;
 }
 ```
 
 ### [练习1.2]
-**请说明proc_struct中struct context context和struct trapframe *tf成员变量含义和在本实验中的作用是什么？**
+**请说明 `proc_struct` 中 `struct context context` 和 `struct trapframe *tf` 成员变量含义和在本实验中的作用是什么？**
 
 1. struct context context 是进程的上下文，用于进程的切换。用于保存前一个进程的现场（各个寄存器的状态）。
 
