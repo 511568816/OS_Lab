@@ -339,4 +339,5 @@ A 是 B 的软链接， A 的目录项中的 inode 节点号与 B 的目录项�
 vfs 中预留了硬链接的实现接口 `int vfs_link(char *old_path, char *new_path)` 。在实现硬链接机制，创建硬链接 link 时，为 new_path 创建对应的 file ，并把其 inode 指向 old_path 所对应的 inode ， inode 的引用计数加 1 。在 unlink 时将引用计数减去1即可。
 
 #### 软链接机制的设计实现
+
 vfs 中预留了软链接的实现接口 `int vfs_symlink(char *old_path, char *new_path)` 。在实现软链接机制，创建软连接 link 时，创建一个新的文件（inode 不同），并把 old_path 的内容存放到文件的内容中去，给该文件保存在磁盘上时 disk_inode 类型为 SFS_TYPE_LINK ，再完善对于该类型 inode 的操作即可。 unlink 时类似于删除一个普通的文件。
