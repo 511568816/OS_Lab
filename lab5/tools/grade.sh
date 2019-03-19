@@ -11,11 +11,7 @@ else
 fi
 
 ## make & makeopts
-if gmake --version > /dev/null 2>&1; then
-    make=gmake;
-else
-    make=make;
-fi
+make=make
 
 makeopts="--quiet --no-print-directory -j"
 
@@ -105,7 +101,7 @@ show_msg() {
     echo $1
     shift
     if [ $# -gt 0 ]; then
-        echo -e "$@" | awk '{printf "   %s\n", $0}'
+        echo "$@" | awk '{printf "   %s\n", $0}'
         echo
     fi
 }
@@ -136,8 +132,8 @@ run_qemu() {
     t0=$(get_time)
     (
         ulimit -t $timeout
-        exec $qemu -nographic $qemuopts -serial file:$qemu_out -monitor null -no-reboot $qemuextra
-    ) > $out 2> $err &
+        exec $qemu -nographic $qemuopts -serial file:$qemu_out -monitor null -no-reboot $qemuextra -device isa-debug-exit
+    ) > $out 2> $err
     pid=$!
 
     # wait for QEMU to start
@@ -146,13 +142,9 @@ run_qemu() {
     if [ -n "$brkfun" ]; then
         # find the address of the kernel $brkfun function
         brkaddr=`$grep " $brkfun\$" $sym_table | $sed -e's/ .*$//g'`
-        brkaddr_phys=`echo $brkaddr | sed "s/^c0/00/g"`
         (
             echo "target remote localhost:$gdbport"
             echo "break *0x$brkaddr"
-            if [ "$brkaddr" != "$brkaddr_phys" ]; then
-                echo "break *0x$brkaddr_phys"
-            fi
             echo "continue"
         ) > $gdb_in
 
@@ -183,8 +175,6 @@ build_run() {
     run_qemu
 
     show_time
-
-    cp $qemu_out .`echo $tag | tr '[:upper:]' '[:lower:]' | sed 's/ /_/g'`.log
 }
 
 check_result() {
@@ -260,7 +250,7 @@ run_test() {
         select=
         case $1 in
             -tag|-prog)
-                select=`expr substr $1 2 ${#1}`
+                select=${1:1:5}
                 eval $select='$2'
                 ;;
         esac
@@ -327,7 +317,7 @@ swapimg=$(make_print swapimg)
 qemuopts="-hda $osimg -drive file=$swapimg,media=disk,cache=writeback"
 
 ## set break-function, default is readline
-brkfun=readline
+# brkfun=readline
 
 default_check() {
     pts=7
@@ -558,3 +548,4 @@ run_test -prog 'forktree'    -check default_check               \
 
 ## print final-score
 show_final
+
